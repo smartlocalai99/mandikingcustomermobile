@@ -7,9 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartrestai.SmartRestAI"
     },
     "android": {
+      "package": "com.smartrestai.smartrestaimobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -21,7 +23,22 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-image"
-    ]
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#32120d",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "79b163a0-e688-47a4-ac04-b185a67ecc18"
+      }
+    },
+    "owner": "vardhanreddy"
   }
 }
