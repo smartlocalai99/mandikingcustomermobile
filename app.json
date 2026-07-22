@@ -4,12 +4,8 @@
     "slug": "smartrestaimobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "smartrestaimobile",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -44,7 +40,16 @@
         }
       ],
       "expo-font",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-asset"
     ],
     "extra": {
       "eas": {
