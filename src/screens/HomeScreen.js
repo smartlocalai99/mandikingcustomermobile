@@ -10,6 +10,7 @@ import { useNotifications } from "../context/NotificationsContext";
 import { useOnboarding } from "../context/OnboardingContext";
 import { matchesSearch, getMenuSearchSuggestions } from "../lib/menuSearch";
 import { getVisibleMenuSections } from "../lib/menuPresentation.mjs";
+import { getDisplayLocation } from "../lib/locationDisplay.mjs";
 import VegToggle from "../components/VegToggle";
 import SearchBar from "../components/SearchBar";
 import OfferCarousel from "../components/OfferCarousel";
@@ -145,9 +146,10 @@ export default function HomeScreen({ navigation, route }) {
   const scrollRef = useRef(null);
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
-  const displayAddress = isLoggedIn && defaultAddress?.line?.trim()
-    ? defaultAddress.line.trim()
-    : savedLocation?.landmark || savedLocation?.line?.split(",")[0]?.trim() || "Kadapa";
+  const displayAddress = getDisplayLocation({
+    defaultAddress: isLoggedIn ? defaultAddress : null,
+    savedLocation,
+  });
 
   const recommendedItems = useMemo(
     () => sections.flatMap((section) => section.items.filter((item) => item.isBestseller)),

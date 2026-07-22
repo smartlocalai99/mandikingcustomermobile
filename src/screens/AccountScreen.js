@@ -7,6 +7,8 @@ import { useAddresses } from "../context/AddressContext";
 import { useAuth } from "../context/AuthContext";
 import { usePayment } from "../context/PaymentContext";
 import EmptyState from "../components/EmptyState";
+import { useOnboarding } from "../context/OnboardingContext";
+import { getDisplayLocation } from "../lib/locationDisplay.mjs";
 
 export default function AccountScreen() {
   const navigation = useNavigation();
@@ -14,6 +16,7 @@ export default function AccountScreen() {
   const { user, logout, isLoggedIn, isHydrated } = useAuth();
   const { defaultAddress } = useAddresses();
   const { method } = usePayment();
+  const { savedLocation } = useOnboarding();
 
   if (!isHydrated) return null;
 
@@ -67,7 +70,7 @@ export default function AccountScreen() {
           </View>
           <View>
             <Text style={styles.profilePhone}>+91 {user?.phone ?? "—"}</Text>
-            <Text style={styles.profileLocation}>Kadapa, Andhra Pradesh</Text>
+            <Text style={styles.profileLocation}>{getDisplayLocation({ defaultAddress, savedLocation })}</Text>
           </View>
         </View>
       </View>

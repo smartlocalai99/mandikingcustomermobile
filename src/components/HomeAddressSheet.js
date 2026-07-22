@@ -4,12 +4,15 @@ import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/colors";
 import { useAddresses } from "../context/AddressContext";
 import { useAuth } from "../context/AuthContext";
+import { useOnboarding } from "../context/OnboardingContext";
+import { getDisplayLocation } from "../lib/locationDisplay.mjs";
 
 export default function HomeAddressSheet({ visible, onClose }) {
   const navigation = useNavigation();
   const { isLoggedIn } = useAuth();
   const { addresses, defaultAddress, setDefault, isLoadingAddresses, isMutatingAddress, addressError } =
     useAddresses();
+  const { savedLocation } = useOnboarding();
   const hasSavedAddresses = isLoggedIn && addresses.length > 0;
 
   const handleSelect = async (address) => {
@@ -78,9 +81,11 @@ export default function HomeAddressSheet({ visible, onClose }) {
               <View style={styles.addressIcon}>
                 <Ionicons name="location-outline" size={20} color={colors.accentRed} />
               </View>
-              <View>
-                <Text style={styles.addressLabel}>Kadapa</Text>
-                <Text style={styles.addressLine}>Add an address for accurate delivery</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addressLabel}>{getDisplayLocation({ savedLocation })}</Text>
+                <Text style={styles.addressLine}>
+                  {savedLocation ? "Current location confirmed on this device" : "Add an address for accurate delivery"}
+                </Text>
               </View>
             </View>
           )}
