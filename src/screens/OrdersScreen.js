@@ -10,6 +10,7 @@ import { useMenuData } from "../context/MenuDataContext";
 import { useOrders } from "../context/OrdersContext";
 import { createOrderView, formatRupees, splitOrders } from "../lib/orderView";
 import EmptyState from "../components/EmptyState";
+import OrderTrackingMap from "../components/OrderTrackingMap";
 
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
 const RIDER = { name: "Ravi Kumar", role: "Your delivery partner" };
@@ -84,27 +85,13 @@ function PreviousOrders({ orders, accountPhone }) {
   );
 }
 
-function RouteVisual() {
-  return (
-    <View style={styles.routeVisual}>
-      <View style={[styles.routeMarker, { left: "18%", top: "62%" }]}>
-        <Ionicons name="restaurant" size={16} color={colors.white} />
-      </View>
-      <View style={[styles.routeMarker, styles.routeMarkerCustomer, { right: "18%", top: "22%" }]}>
-        <Ionicons name="home" size={16} color={colors.white} />
-      </View>
-      <View style={styles.routeLine} />
-    </View>
-  );
-}
-
-function CurrentOrder({ order, accountPhone }) {
+function CurrentOrder({ order, accountPhone, restaurantProfile }) {
   const active = createOrderView(order, accountPhone);
   const hasContact = Boolean(active.contact) && active.contact !== "Contact unavailable";
 
   return (
     <View style={styles.currentCard}>
-      <RouteVisual />
+      <OrderTrackingMap restaurant={restaurantProfile} deliveryAddress={active.deliveryAddress} />
 
       <View style={styles.currentBody}>
         <View style={styles.riderRow}>
@@ -203,6 +190,7 @@ export default function OrdersScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, isLoggedIn, isHydrated } = useAuth();
+  const { profile } = useMenuData();
   const { orders: orderList = [], isLoadingOrders, ordersError, refreshOrders } = useOrders();
   const orders = Array.isArray(orderList) ? orderList : [];
   const [selectedTab, setSelectedTab] = useState("current");
@@ -272,7 +260,7 @@ export default function OrdersScreen() {
               </View>
 
               {selectedTab === "current" ? (
-                <CurrentOrder order={activeOrder} accountPhone={user?.phone} />
+                <CurrentOrder order={activeOrder} accountPhone={user?.phone} restaurantProfile={profile} />
               ) : (
                 <PreviousOrders orders={previousOrders} accountPhone={user?.phone} />
               )}
@@ -309,10 +297,6 @@ const styles = StyleSheet.create({
   previousFooterMuted: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
   previousBillLabel: { fontSize: 10, fontWeight: "700", color: colors.textFaint },
   previousBillAmount: { fontSize: 15, fontWeight: "900", color: colors.textPrimary },
-  routeVisual: { height: 130, backgroundColor: "#ebe7e2" },
-  routeMarker: { position: "absolute", height: 34, width: 34, borderRadius: 17, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  routeMarkerCustomer: { backgroundColor: "#b63b2d" },
-  routeLine: { position: "absolute", left: "24%", right: "24%", top: "42%", height: 3, backgroundColor: "#c9c0b7", borderRadius: 2 },
   currentCard: { borderRadius: 28, backgroundColor: colors.white, overflow: "hidden", shadowColor: "#2b110c", shadowOpacity: 0.12, shadowRadius: 30, shadowOffset: { width: 0, height: 12 } },
   currentBody: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20 },
   riderRow: { flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#eee8e2", paddingBottom: 16 },

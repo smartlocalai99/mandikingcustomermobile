@@ -91,6 +91,7 @@ export function createOrderView(order = {}, accountPhone = "") {
     placedAtLabel: formatOrderDate(order.placedAt),
     address: String(deliveryAddress.line || "").trim() || "Delivery address unavailable",
     contact: String(deliveryAddress.phone || "").trim() || String(accountPhone || "").trim() || "Contact unavailable",
+    deliveryAddress,
     totalItems: finiteNumber(order.totalItems),
     total: finiteNumber(order.total),
     itemRows,
