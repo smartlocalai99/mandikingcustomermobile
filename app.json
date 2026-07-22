@@ -43,7 +43,8 @@
           "locationWhenInUsePermission": "SmartRest uses your location to suggest a delivery address. You can enter one manually instead."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-audio"
     ],
     "extra": {
       "eas": {
