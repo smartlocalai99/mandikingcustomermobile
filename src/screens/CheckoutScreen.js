@@ -13,6 +13,7 @@ import { useOrders } from "../context/OrdersContext";
 import { usePayment } from "../context/PaymentContext";
 import { calculateDeliveryFee } from "../lib/deliveryFee";
 import { playOrderSuccessSound } from "../lib/soundAssets";
+import { buildOrderPayload } from "../lib/orderSubmission.mjs";
 import EmptyState from "../components/EmptyState";
 
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
@@ -110,24 +111,27 @@ export default function CheckoutScreen() {
   const canCheckout = Boolean(defaultAddress) && !isClosed && !isBelowMinOrder;
 
   const handlePlaceOrder = async () => {
-    if (!canCheckout) return;
+    if (!canCheckout || isPlacing) return;
+
+    const result = buildOrderPayload({
+      cartItems: items,
+      totals: { totalItems: checkoutSummary.totalItems, subtotal, discount, deliveryFee },
+      address: defaultAddress,
+      paymentMethod: method,
+      profile,
+    });
+
+    if (!result.ok) {
+      setPlacementError(result.error.message);
+      return;
+    }
+
     setIsPlacing(true);
     setPlacementError("");
     try {
-      const order = {
-        id: Math.random().toString(36).slice(2, 8).toUpperCase(),
-        items,
-        totalItems: checkoutSummary.totalItems,
-        subtotal,
-        discount,
-        deliveryFee,
-        total,
-        status: "preparing",
-        deliveryAddress: defaultAddress,
-        paymentMethod: method,
-        placedAt: new Date().toISOString(),
-      };
-      const savedOrder = await placeOrder(order);
+      // Cart is only cleared once the insert actually succeeds, so a failed
+      // submission (network drop, RLS error, etc.) never loses the basket.
+      const savedOrder = await placeOrder(result.payload);
       clearCart();
       setPlacedOrder(savedOrder);
       playOrderSuccessSound();
