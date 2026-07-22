@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { normalizePhone, upsertCustomer } from "../lib/customerData";
+import { normalizePhone, updateCustomerName, upsertCustomer } from "../lib/customerData";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
@@ -20,8 +20,8 @@ export function AuthProvider({ children }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           const normalizedPhone = normalizePhone(parsed.phone);
-          await upsertCustomer(normalizedPhone);
-          if (active) setUser({ phone: normalizedPhone });
+          const profile = await upsertCustomer(normalizedPhone);
+          if (active) setUser({ ...profile, phone: normalizedPhone });
         }
       } catch {
         if (active) {
@@ -39,16 +39,18 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async (phone) => {
+  const login = async (phone, name = "") => {
     const normalizedPhone = normalizePhone(phone);
     const nextUser = { phone: normalizedPhone };
     setIsLoggingIn(true);
     setAuthError("");
 
     try {
-      await upsertCustomer(normalizedPhone);
-      setUser(nextUser);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+      const profile = await upsertCustomer(normalizedPhone, { name });
+      const userWithProfile = { ...nextUser, ...profile };
+      setUser(userWithProfile);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
+      return userWithProfile;
     } catch (error) {
       const message = "Unable to connect your account. Please try again.";
       setUser(null);
@@ -57,6 +59,15 @@ export function AuthProvider({ children }) {
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const saveCustomerName = async (name) => {
+    if (!user?.phone) throw new Error("Log in to save your name.");
+    const profile = await updateCustomerName(user.phone, name);
+    const nextUser = { ...user, ...profile };
+    setUser(nextUser);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+    return nextUser;
   };
 
   const logout = () => {
@@ -73,6 +84,7 @@ export function AuthProvider({ children }) {
       isLoggingIn,
       authError,
       login,
+      saveCustomerName,
       logout,
     }),
     [user, isHydrated, isLoggingIn, authError]

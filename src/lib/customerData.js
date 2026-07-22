@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase";
+import { normalizeAddressInput, normalizeCustomerProfile } from "./customerProfile.mjs";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -12,16 +13,17 @@ export function normalizePhone(phone) {
 }
 
 export function addressToRow(customerPhone, address) {
+  const normalized = normalizeAddressInput(address);
   return {
-    ...(address.id ? { id: address.id } : {}),
+    ...(normalized.id ? { id: normalized.id } : {}),
     customer_phone: normalizePhone(customerPhone),
-    label: address.label,
-    address_line: address.line,
-    landmark: address.landmark || null,
-    contact_phone: address.phone || null,
-    is_default: Boolean(address.isDefault),
-    lat: address.lat ?? null,
-    lng: address.lng ?? null,
+    label: normalized.label,
+    address_line: normalized.line,
+    landmark: normalized.landmark || null,
+    contact_phone: normalized.phone || null,
+    is_default: normalized.isDefault,
+    lat: normalized.lat,
+    lng: normalized.lng,
   };
 }
 
@@ -81,18 +83,28 @@ function throwIfError(error) {
   if (error) throw error;
 }
 
-export async function upsertCustomer(phone, client = getSupabase()) {
+export async function upsertCustomer(phone, profile = {}, client = getSupabase()) {
   const normalized = normalizePhone(phone);
+  const normalizedProfile = normalizeCustomerProfile({ phone: normalized, ...profile });
   const { data, error } = await client
     .from("customers")
     .upsert(
-      { phone: normalized, updated_at: new Date().toISOString() },
+      { phone: normalized, ...(normalizedProfile.name ? { name: normalizedProfile.name } : {}), updated_at: new Date().toISOString() },
       { onConflict: "phone" }
     )
     .select()
     .single();
   throwIfError(error);
-  return data;
+  return normalizeCustomerProfile(data);
+}
+
+export async function updateCustomerName(phone, name, client = getSupabase()) {
+  const normalized = normalizePhone(phone);
+  const profile = normalizeCustomerProfile({ phone: normalized, name });
+  if (!profile.name) throw new Error("Enter your name to continue.");
+  const { data, error } = await client.from("customers").update({ name: profile.name }).eq("phone", normalized).select().single();
+  throwIfError(error);
+  return normalizeCustomerProfile(data);
 }
 
 export async function listAddresses(phone, client = getSupabase()) {

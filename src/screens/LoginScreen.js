@@ -178,13 +178,41 @@ function OtpStep({ onVerified, onBack }) {
   );
 }
 
+function NameStep({ onSubmit, isSaving }) {
+  const [name, setName] = useState("");
+  const valid = name.trim().length >= 2;
+  return (
+    <View style={styles.stepBody}>
+      <Image source={require("../../assets/bannerlogin.png")} style={styles.banner} contentFit="contain" />
+      <View style={styles.centerText}>
+        <Text style={styles.title}>What should we call you?</Text>
+        <Text style={styles.subtitle}>Add your name so we can personalize your orders.</Text>
+      </View>
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        autoFocus
+        placeholder="Your name"
+        placeholderTextColor="#9b9b9b"
+        style={styles.nameInput}
+        returnKeyType="done"
+        onSubmitEditing={() => valid && onSubmit(name.trim())}
+      />
+      <Pressable disabled={!valid || isSaving} onPress={() => onSubmit(name.trim())} style={[styles.primaryButton, !valid || isSaving ? { opacity: 0.5 } : null]}>
+        {isSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Continue</Text>}
+      </Pressable>
+    </View>
+  );
+}
+
 export default function LoginScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, saveCustomerName } = useAuth();
   const [step, setStep] = useState("phone");
   const [phone, setPhone] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const handleSendOtp = () => {
     if (isSending) return;
@@ -196,8 +224,22 @@ export default function LoginScreen() {
   };
 
   const handleVerified = async () => {
-    await login(phone);
+    const user = await login(phone);
+    if (!user.name) {
+      setStep("name");
+      return;
+    }
     setTimeout(() => navigation.goBack(), 400);
+  };
+
+  const handleName = async (name) => {
+    setIsSavingName(true);
+    try {
+      await saveCustomerName(name);
+      navigation.goBack();
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const handleBack = () => {
@@ -216,8 +258,10 @@ export default function LoginScreen() {
 
       {step === "phone" ? (
         <PhoneStep phone={phone} onChange={setPhone} onSubmit={handleSendOtp} isSending={isSending} />
-      ) : (
+      ) : step === "otp" ? (
         <OtpStep onVerified={handleVerified} onBack={() => setStep("phone")} />
+      ) : (
+        <NameStep onSubmit={handleName} isSaving={isSavingName} />
       )}
     </View>
   );
@@ -255,6 +299,7 @@ const styles = StyleSheet.create({
   code: { fontSize: 15, fontWeight: "900", color: "#4a4a4a" },
   divider: { height: 24, width: 1, backgroundColor: "#d5d5d5" },
   phoneInput: { flex: 1, fontSize: 16, fontWeight: "700", color: "#333" },
+  nameInput: { marginTop: 32, height: 56, width: "100%", borderRadius: 12, backgroundColor: "#f2f2f2", paddingHorizontal: 16, fontSize: 16, fontWeight: "700", color: "#333" },
   primaryButton: {
     marginTop: 24,
     height: 54,
