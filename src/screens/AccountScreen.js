@@ -70,7 +70,7 @@ export default function AccountScreen() {
           </View>
           <View>
             <Text style={styles.profilePhone}>+91 {user?.phone ?? "—"}</Text>
-            <Text style={styles.profileLocation}>{getDisplayLocation({ defaultAddress, savedLocation })}</Text>
+            <Text style={styles.profileLocation}>{getDisplayLocation({ defaultAddress, savedLocation, fallback: "Kadapa, Andhra Pradesh" })}</Text>
           </View>
         </View>
       </View>
