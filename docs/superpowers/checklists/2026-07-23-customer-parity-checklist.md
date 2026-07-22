@@ -5,10 +5,10 @@ Native app: `/Users/vardhanreddy/Desktop/smartrestsuperadmin/smartrestaimobile`
 
 ## Shared decisions
 
-- [ ] Brand splash matches `components/customer/BrandedSplash.jsx` and `public/bannerlogin.png`.
-- [ ] Notification and foreground-location permission onboarding has explanatory copy, denial recovery, and manual fallback.
-- [ ] The web image toggle artwork, labels, colors, dimensions, and motion match.
-- [ ] The top category row contains exactly Mandi, Starters, Rotis, Desserts in that order.
+- [x] Startup splash uses a white native background; branded onboarding follows after hydration.
+- [x] Notification and foreground-location permission onboarding has explanatory copy, denial recovery, and manual fallback.
+- [x] The web image toggle artwork, labels, colors, dimensions, and motion match.
+- [x] The top category row contains exactly Mandi, Starters, Rotis, Desserts in that order.
 - [ ] Empty categories remain visible and show a useful empty state.
 - [ ] Cached menu appears before a network refresh and startup has a bounded fallback.
 
@@ -52,3 +52,5 @@ Native app: `/Users/vardhanreddy/Desktop/smartrestsuperadmin/smartrestaimobile`
 ## Verification log
 
 Record device, build, date, and any known limitation here after the implementation tasks complete.
+
+- 2026-07-23: `npm test` passed (21/21); `npx expo export --platform ios` passed; physical iPhone `00008140-000A044C027B001C` built with Xcode 26.6, installed, and launched successfully. Expo Doctor still reports only the local CocoaPods PATH check; `pod install` itself completed successfully.

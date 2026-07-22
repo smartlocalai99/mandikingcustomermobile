@@ -25,7 +25,7 @@ function AppContent() {
 
   if (!isReady) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }}>
         <ActivityIndicator color={colors.gold} />
       </View>
     );
