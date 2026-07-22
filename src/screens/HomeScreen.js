@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { findNodeHandle, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
@@ -9,6 +9,7 @@ import { useMenuData } from "../context/MenuDataContext";
 import { useNotifications } from "../context/NotificationsContext";
 import { useOnboarding } from "../context/OnboardingContext";
 import { matchesSearch, getMenuSearchSuggestions } from "../lib/menuSearch";
+import { getVisibleMenuSections } from "../lib/menuPresentation.mjs";
 import VegToggle from "../components/VegToggle";
 import SearchBar from "../components/SearchBar";
 import OfferCarousel from "../components/OfferCarousel";
@@ -35,17 +36,13 @@ function resolveTargetHeading(category, sections) {
   return null;
 }
 
-function ItemGrid({ items, sectionTitle, isOrderingDisabled }) {
+function ItemRow({ items, sectionTitle, isOrderingDisabled }) {
   return (
-    <View style={{ gap: 16 }}>
-      {chunk(items, 2).map((row, index) => (
-        <View key={index} style={{ flexDirection: "row", gap: 16 }}>
-          {row.map((item) => (
-            <ProductCard key={item.id} item={item} sectionTitle={sectionTitle} isOrderingDisabled={isOrderingDisabled} />
-          ))}
-          {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
-        </View>
+    <View style={{ flexDirection: "row", gap: 16, marginBottom: 16 }}>
+      {items.map((item) => (
+        <ProductCard key={item.id} item={item} sectionTitle={sectionTitle} isOrderingDisabled={isOrderingDisabled} />
       ))}
+      {items.length === 1 ? <View style={{ flex: 1 }} /> : null}
     </View>
   );
 }
@@ -146,7 +143,6 @@ export default function HomeScreen({ navigation, route }) {
   }, [navigation, route.params?.openNotifications]);
 
   const scrollRef = useRef(null);
-  const sectionNodes = useRef({});
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = isLoggedIn && defaultAddress?.line?.trim()
@@ -170,21 +166,32 @@ export default function HomeScreen({ navigation, route }) {
   const showRecommended = searchQuery.trim().length === 0 || searchedRecommendedItems.length > 0;
 
   const visibleMenuSections = useMemo(
-    () =>
-      sections
-        .map((section) => ({
-          ...section,
-          items: vegOnly ? section.items.filter((item) => item.isVeg) : section.items,
-        }))
-        .map((section) => ({
-          ...section,
-          items: section.items.filter((item) => matchesSearch(item, section.heading, searchQuery)),
-        }))
-        .filter((section) => section.items.length > 0),
+    () => getVisibleMenuSections(sections, { vegOnly, searchQuery }),
     [sections, vegOnly, searchQuery]
   );
 
   const hasResults = searchedRecommendedItems.length > 0 || visibleMenuSections.length > 0;
+
+  const listSections = useMemo(() => {
+    const nextSections = [];
+    if (showRecommended && searchedRecommendedItems.length > 0) {
+      nextSections.push({
+        key: "Recommended",
+        title: "Recommended",
+        badgeText: "",
+        rows: chunk(searchedRecommendedItems, 2),
+      });
+    }
+    visibleMenuSections.forEach((section) => {
+      nextSections.push({
+        key: section.heading,
+        title: section.heading,
+        badgeText: section.badgeText,
+        rows: chunk(section.items, 2),
+      });
+    });
+    return nextSections;
+  }, [searchedRecommendedItems, showRecommended, visibleMenuSections]);
 
   const toggleSection = (title) => {
     setOpenSections((current) => ({ ...current, [title]: !(current[title] ?? true) }));
@@ -195,12 +202,9 @@ export default function HomeScreen({ navigation, route }) {
     if (!heading) return;
     setOpenSections((current) => ({ ...current, [heading]: true }));
     requestAnimationFrame(() => {
-      const node = sectionNodes.current[heading];
-      const scrollHandle = findNodeHandle(scrollRef.current);
-      if (node && scrollHandle) {
-        node.measureLayout(scrollHandle, (x, y) => {
-          scrollRef.current?.scrollTo({ y: Math.max(y - 12, 0), animated: true });
-        });
+      const sectionIndex = listSections.findIndex((section) => section.key === heading);
+      if (sectionIndex >= 0) {
+        scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
       }
     });
   };
@@ -246,60 +250,55 @@ export default function HomeScreen({ navigation, route }) {
         />
       </View>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-        <OfferCarousel offers={offers} />
-        <CategoryRow categories={categories} onSelect={jumpToSection} />
-
-        <View style={styles.menuArea}>
-          {!isLoading && sections.length === 0 ? (
+      <SectionList
+        ref={scrollRef}
+        sections={listSections}
+        keyExtractor={(row, index) => `${row[0]?.id ?? "empty"}-${index}`}
+        renderItem={({ item, section }) => (
+          openSections[section.key] ?? true ? (
+            <View style={styles.rowWrap}>
+              <ItemRow items={item} sectionTitle={section.title} isOrderingDisabled={isOrderingDisabled} />
+            </View>
+          ) : null
+        )}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionWrap}>
+            <CollapsibleSection
+              title={section.title}
+              badgeText={section.badgeText}
+              isOpen={openSections[section.key] ?? true}
+              onToggle={() => toggleSection(section.key)}
+            />
+          </View>
+        )}
+        ListHeaderComponent={
+          <>
+            <OfferCarousel offers={offers} />
+            <CategoryRow categories={categories} onSelect={jumpToSection} />
+          </>
+        }
+        ListEmptyComponent={
+          !isLoading && sections.length === 0 ? (
             <View style={styles.centerState}>
               <Text style={styles.centerStateTitle}>Menu coming soon</Text>
               <Text style={styles.centerStateSubtitle}>The restaurant is still setting up its menu.</Text>
             </View>
-          ) : (
-            <>
-              {showRecommended && recommendedItems.length > 0 ? (
-                <View style={{ marginBottom: 24 }}>
-                  <CollapsibleSection
-                    title="Recommended"
-                    isOpen={openSections.Recommended ?? true}
-                    onToggle={() => toggleSection("Recommended")}
-                  >
-                    <ItemGrid items={searchedRecommendedItems} sectionTitle="Recommended" isOrderingDisabled={isOrderingDisabled} />
-                  </CollapsibleSection>
-                </View>
-              ) : null}
-
-              {!hasResults ? (
-                <View style={styles.notFoundBox}>
-                  <View style={styles.notFoundIcon}>
-                    <Ionicons name="search" size={22} color={colors.textFaint} />
-                  </View>
-                  <Text style={styles.centerStateTitle}>Item not found</Text>
-                  <Text style={styles.centerStateSubtitle}>We couldn't find that on the menu. Try a different search.</Text>
-                </View>
-              ) : null}
-
-              <View style={{ gap: 28 }}>
-                {visibleMenuSections.map((section) => (
-                  <View key={section.heading} ref={(node) => { sectionNodes.current[section.heading] = node; }}>
-                    <CollapsibleSection
-                      title={section.heading}
-                      badgeText={section.badgeText}
-                      isOpen={openSections[section.heading] ?? true}
-                      onToggle={() => toggleSection(section.heading)}
-                    >
-                      <ItemGrid items={section.items} sectionTitle={section.heading} isOrderingDisabled={isOrderingDisabled} />
-                    </CollapsibleSection>
-                  </View>
-                ))}
+          ) : !hasResults ? (
+            <View style={styles.notFoundBox}>
+              <View style={styles.notFoundIcon}>
+                <Ionicons name="search" size={22} color={colors.textFaint} />
               </View>
-            </>
-          )}
-        </View>
-
-        <RestaurantInfo profile={profile} />
-      </ScrollView>
+              <Text style={styles.centerStateTitle}>Item not found</Text>
+              <Text style={styles.centerStateSubtitle}>We couldn't find that on the menu. Try a different search.</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={<RestaurantInfo profile={profile} />}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        stickySectionHeadersEnabled
+        removeClippedSubviews
+      />
 
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
       <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
@@ -335,7 +334,9 @@ const styles = StyleSheet.create({
   },
   bellBadgeText: { fontSize: 9, fontWeight: "900", color: colors.white },
   searchWrap: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingBottom: 12 },
-  menuArea: { paddingHorizontal: 16, paddingTop: 8 },
+  listContent: { paddingBottom: 32 },
+  sectionWrap: { paddingHorizontal: 16, backgroundColor: colors.white },
+  rowWrap: { paddingHorizontal: 16, backgroundColor: colors.white },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: 12 },
   sectionTitleRow: { flex: 1, flexDirection: "row", alignItems: "baseline", gap: 8 },
   sectionTitle: { flexShrink: 1, fontSize: 20, fontWeight: "800", color: colors.textPrimary },

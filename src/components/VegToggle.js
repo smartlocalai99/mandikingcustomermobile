@@ -1,7 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { colors } from "../constants/colors";
+
+const VEG_IMAGE = require("../../assets/veg.webp");
+const NON_VEG_IMAGE = require("../../assets/nonveg.webp");
 
 export default function VegToggle({ vegOnly, onChange }) {
   const dotStyle = useAnimatedStyle(() => ({
@@ -12,6 +15,7 @@ export default function VegToggle({ vegOnly, onChange }) {
     <Pressable
       accessibilityRole="switch"
       accessibilityState={{ checked: vegOnly }}
+      accessibilityLabel={vegOnly ? "Switch to full menu" : "Switch to vegetarian menu"}
       onPress={() => onChange(!vegOnly)}
       style={styles.track}
     >
@@ -19,9 +23,7 @@ export default function VegToggle({ vegOnly, onChange }) {
         {vegOnly ? "Veg" : "Non-veg"}
       </Text>
       <Animated.View style={[styles.dot, dotStyle]}>
-        <View style={[styles.dotInner, { backgroundColor: vegOnly ? colors.primary : colors.favoriteRed }]}>
-          <Ionicons name="ellipse" size={10} color={colors.white} />
-        </View>
+        <Image source={vegOnly ? VEG_IMAGE : NON_VEG_IMAGE} style={styles.dotImage} contentFit="contain" />
       </Animated.View>
     </Pressable>
   );
@@ -54,10 +56,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.white,
   },
-  dotInner: {
-    flex: 1,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  dotImage: { height: 22, width: 22 },
 });

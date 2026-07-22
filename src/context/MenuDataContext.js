@@ -10,15 +10,11 @@ import {
 } from "../lib/restaurantData";
 import { createTrailingRefresh } from "../lib/trailingRefresh.mjs";
 import { readMenuCache, writeMenuCache } from "../lib/menuCache.mjs";
+import { getPrimaryCategories } from "../lib/menuPresentation.mjs";
 
 const MenuDataContext = createContext(null);
 
-const FALLBACK_CATEGORIES = [
-  { id: "fallback-mandi", label: "Mandi", imageUrl: null, sectionId: null, sectionTitle: "Chicken Mandi" },
-  { id: "fallback-starters", label: "Starters", imageUrl: null, sectionId: null, sectionTitle: "Chicken Starters" },
-  { id: "fallback-rotis", label: "Rotis", imageUrl: null, sectionId: null, sectionTitle: "Rotis" },
-  { id: "fallback-desserts", label: "Desserts", imageUrl: null, sectionId: null, sectionTitle: "Desserts" },
-];
+const FALLBACK_CATEGORIES = getPrimaryCategories();
 
 export function MenuDataProvider({ children }) {
   const client = useMemo(() => getSupabase(), []);
@@ -43,7 +39,7 @@ export function MenuDataProvider({ children }) {
         setSections(nextSections);
         setOffers(nextOffers);
         const nextCategories = await listActiveCategories(client);
-        const nextCategoryState = nextCategories.length > 0 ? nextCategories : FALLBACK_CATEGORIES;
+        const nextCategoryState = getPrimaryCategories(nextCategories);
         if (!cancelled) {
           setCategories(nextCategoryState);
           await writeMenuCache(AsyncStorage, {
@@ -67,7 +63,7 @@ export function MenuDataProvider({ children }) {
         setProfile(cached.profile);
         setSections(cached.sections);
         setOffers(cached.offers);
-        setCategories(cached.categories.length > 0 ? cached.categories : FALLBACK_CATEGORIES);
+        setCategories(getPrimaryCategories(cached.categories));
         setIsLoading(false);
       }
       refetch();
