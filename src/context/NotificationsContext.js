@@ -1,93 +1,76 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import * as Notifications from "expo-notifications";
 import { getSupabase } from "../lib/supabase";
-import {
-  listCustomerNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-  registerPushToken,
-  syncBadgeCount,
-} from "../lib/notificationsData";
+import { registerPushToken, syncBadgeCount } from "../lib/notificationsData";
 import { useAuth } from "./AuthContext";
 
 const NotificationsContext = createContext(null);
 
 export function NotificationsProvider({ children }) {
   const client = useMemo(() => getSupabase(), []);
-  const { user, isLoggedIn } = useAuth();
-  const phone = user?.phone;
+  const { isLoggedIn } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    import("expo-notifications")
-      .then((Notifications) => {
-        Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowBanner: true,
-            shouldShowList: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-          }),
-        });
-      })
-      .catch(() => {});
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
   }, []);
 
-  const refresh = async () => {
-    if (!phone) return;
-    try {
-      const rows = await listCustomerNotifications(phone, client);
-      setNotifications(rows);
-    } catch {
-      // Keep whatever list was already loaded.
-    }
-  };
-
   useEffect(() => {
-    if (!isLoggedIn || !phone) {
+    if (!isLoggedIn) {
       setNotifications([]);
-      return undefined;
+      return;
     }
-
-    let cancelled = false;
-    setIsLoading(true);
-    listCustomerNotifications(phone, client)
-      .then((rows) => {
-        if (!cancelled) setNotifications(rows);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
     registerPushToken(client).catch(() => {});
-
-    const channel = client
-      .channel(`customer-notifications-${phone}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "customer_notifications", filter: `customer_phone=eq.${phone}` },
-        () => {
-          if (!cancelled) refresh();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      client.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, phone, client]);
+  }, [isLoggedIn, client]);
 
   useEffect(() => {
     if (!isLoggedIn) return undefined;
     const subscription = Notifications.addPushTokenListener(() => {
+      // The listener receives a native APNs/FCM token. Fetch a new Expo token
+      // before submitting so the server always stores the correct token type.
       registerPushToken(client).catch(() => {});
     });
     return () => subscription.remove();
   }, [isLoggedIn, client]);
+
+  const ingestPush = useCallback((content = {}, identifier) => {
+    const next = {
+      id: identifier || `push-${Date.now()}`,
+      title: typeof content.title === "string" ? content.title : "SmartRest",
+      body: typeof content.body === "string" ? content.body : "",
+      offerId: typeof content?.data?.offerId === "string" ? content.data.offerId : null,
+      isRead: false,
+      isTransient: true,
+      createdAt: new Date().toISOString(),
+    };
+    setNotifications((current) =>
+      current.some((item) => item.id === next.id) ? current : [next, ...current]
+    );
+  }, []);
+
+  const markRead = useCallback((id) => {
+    setNotifications((current) =>
+      current.map((item) => (item.id === id ? { ...item, isRead: true } : item))
+    );
+  }, []);
+
+  const markAllRead = useCallback(() => {
+    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+  }, []);
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
@@ -95,28 +78,18 @@ export function NotificationsProvider({ children }) {
     syncBadgeCount(unreadCount);
   }, [unreadCount]);
 
-  const markRead = async (id) => {
-    setNotifications((current) => current.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-    try {
-      await markNotificationRead(id, client);
-    } catch {
-      refresh();
-    }
-  };
-
-  const markAllRead = async () => {
-    if (!phone) return;
-    setNotifications((current) => current.map((n) => ({ ...n, isRead: true })));
-    try {
-      await markAllNotificationsRead(phone, client);
-    } catch {
-      refresh();
-    }
-  };
-
+  const refresh = useCallback(async () => {}, []);
   const value = useMemo(
-    () => ({ notifications, unreadCount, isLoading, markRead, markAllRead, refresh }),
-    [notifications, unreadCount, isLoading]
+    () => ({
+      notifications,
+      unreadCount,
+      isLoading: false,
+      ingestPush,
+      markRead,
+      markAllRead,
+      refresh,
+    }),
+    [notifications, unreadCount, ingestPush, markRead, markAllRead, refresh]
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

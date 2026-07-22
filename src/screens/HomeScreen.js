@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { findNodeHandle, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,6 +6,7 @@ import { colors } from "../constants/colors";
 import { useAddresses } from "../context/AddressContext";
 import { useAuth } from "../context/AuthContext";
 import { useMenuData } from "../context/MenuDataContext";
+import { useNotifications } from "../context/NotificationsContext";
 import { matchesSearch, getMenuSearchSuggestions } from "../lib/menuSearch";
 import VegToggle from "../components/VegToggle";
 import SearchBar from "../components/SearchBar";
@@ -13,6 +14,7 @@ import OfferCarousel from "../components/OfferCarousel";
 import CategoryRow from "../components/CategoryRow";
 import ProductCard from "../components/ProductCard";
 import HomeAddressSheet from "../components/HomeAddressSheet";
+import NotificationsSheet from "../components/NotificationsSheet";
 
 function chunk(items, size) {
   const rows = [];
@@ -121,17 +123,25 @@ function RestaurantInfo({ profile }) {
   );
 }
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAuth();
   const { defaultAddress } = useAddresses();
   const { profile, sections, offers, categories, isLoading } = useMenuData();
+  const { unreadCount } = useNotifications();
 
   const [vegOnly, setVegOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
+  const [isNotificationsSheetOpen, setIsNotificationsSheetOpen] = useState(false);
   const [openSections, setOpenSections] = useState({});
+
+  useEffect(() => {
+    if (!route.params?.openNotifications) return;
+    setIsNotificationsSheetOpen(true);
+    navigation.setParams({ openNotifications: undefined });
+  }, [navigation, route.params?.openNotifications]);
 
   const scrollRef = useRef(null);
   const sectionNodes = useRef({});
@@ -204,7 +214,17 @@ export default function HomeScreen() {
           <Ionicons name="chevron-down" size={16} color={colors.white} />
         </Pressable>
 
-        <VegToggle vegOnly={vegOnly} onChange={setVegOnly} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <VegToggle vegOnly={vegOnly} onChange={setVegOnly} />
+          <Pressable style={styles.bellButton} onPress={() => setIsNotificationsSheetOpen(true)} hitSlop={8}>
+            <Ionicons name="notifications-outline" size={20} color={colors.white} />
+            {unreadCount > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.searchWrap}>
@@ -278,6 +298,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
+      <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
     </View>
   );
 }
@@ -295,6 +316,20 @@ const styles = StyleSheet.create({
   locationButton: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
   locationIcon: { height: 36, width: 36, borderRadius: 18, backgroundColor: "#fff7df", alignItems: "center", justifyContent: "center" },
   locationText: { flexShrink: 1, fontSize: 14, fontWeight: "900", color: colors.white },
+  bellButton: { height: 32, width: 32, alignItems: "center", justifyContent: "center" },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.favoriteRed,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: { fontSize: 9, fontWeight: "900", color: colors.white },
   searchWrap: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingBottom: 12 },
   menuArea: { paddingHorizontal: 16, paddingTop: 8 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: 12 },

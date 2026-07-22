@@ -11,43 +11,6 @@ import {
   submitPushRegistration,
 } from "./pushRegistration.mjs";
 
-function notificationFromRow(row) {
-  return {
-    id: row.id,
-    broadcastId: row.broadcast_id,
-    title: row.title,
-    body: row.body,
-    offerId: row.offer_id,
-    isRead: row.is_read,
-    createdAt: row.created_at,
-  };
-}
-
-export async function listCustomerNotifications(phone, client = getSupabase()) {
-  const { data, error } = await client
-    .from("customer_notifications")
-    .select("*")
-    .eq("customer_phone", phone)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return (data ?? []).map(notificationFromRow);
-}
-
-export async function markNotificationRead(id, client = getSupabase()) {
-  const { error } = await client.from("customer_notifications").update({ is_read: true }).eq("id", id);
-  if (error) throw error;
-}
-
-export async function markAllNotificationsRead(phone, client = getSupabase()) {
-  const { error } = await client
-    .from("customer_notifications")
-    .update({ is_read: true })
-    .eq("customer_phone", phone)
-    .eq("is_read", false);
-  if (error) throw error;
-}
-
 export async function registerPushToken(client = getSupabase()) {
   // Recent iOS simulators can receive remote notifications. Android emulator
   // verification still requires Google Play services and FCM credentials.
@@ -69,9 +32,8 @@ export async function registerPushToken(client = getSupabase()) {
 
 export async function syncBadgeCount(count) {
   try {
-    const Notifications = await import("expo-notifications");
     await Notifications.setBadgeCountAsync(count);
   } catch {
-    // Badge API is unavailable in Expo Go on some platforms — ignore.
+    // Some runtimes do not expose badge APIs; notification delivery still works.
   }
 }
