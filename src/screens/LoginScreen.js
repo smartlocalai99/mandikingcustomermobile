@@ -1,0 +1,288 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { colors } from "../constants/colors";
+import { useAuth } from "../context/AuthContext";
+
+const OTP_LENGTH = 4;
+const VALID_OTP = "1234";
+const RESEND_SECONDS = 30;
+
+function PhoneStep({ phone, onChange, onSubmit, isSending }) {
+  const isValid = phone.length === 10;
+
+  return (
+    <View style={styles.stepBody}>
+      <Image source={require("../../assets/bannerlogin.png")} style={styles.banner} contentFit="contain" />
+
+      <View style={styles.centerText}>
+        <Text style={styles.title}>
+          Fuel your <Text style={{ color: colors.primary }}>Cravings!</Text>
+        </Text>
+        <Text style={styles.subtitle}>Please enter your valid mobile number to get verified</Text>
+      </View>
+
+      <View style={styles.phoneField}>
+        <Text style={styles.flag}>🇮🇳</Text>
+        <Text style={styles.code}>+91</Text>
+        <View style={styles.divider} />
+        <TextInput
+          value={phone}
+          onChangeText={(text) => onChange(text.replace(/\D/g, "").slice(0, 10))}
+          keyboardType="number-pad"
+          maxLength={10}
+          autoFocus
+          placeholder="9866531011"
+          placeholderTextColor="#9b9b9b"
+          style={styles.phoneInput}
+        />
+      </View>
+
+      <Pressable
+        disabled={!isValid || isSending}
+        onPress={onSubmit}
+        style={[styles.primaryButton, !isValid || isSending ? { opacity: 0.5 } : null]}
+      >
+        {isSending ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Login</Text>}
+      </Pressable>
+    </View>
+  );
+}
+
+function OtpStep({ onVerified, onBack }) {
+  const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
+  const [error, setError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const inputRefs = useRef([]);
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return undefined;
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [secondsLeft]);
+
+  const code = digits.join("");
+
+  const attemptVerify = (candidate) => {
+    setIsVerifying(true);
+    setError("");
+    setTimeout(async () => {
+      if (candidate === VALID_OTP) {
+        try {
+          await onVerified();
+        } catch (verificationError) {
+          setIsVerifying(false);
+          setError(verificationError?.message || "Unable to connect your account. Please try again.");
+        }
+      } else {
+        setIsVerifying(false);
+        setError("That code doesn't match. Try 1234 for this demo.");
+        setDigits(Array(OTP_LENGTH).fill(""));
+        inputRefs.current[0]?.focus();
+      }
+    }, 500);
+  };
+
+  const setDigitAt = (index, value) => {
+    const clean = value.replace(/\D/g, "").slice(-1);
+    setDigits((current) => {
+      const next = [...current];
+      next[index] = clean;
+      if (clean && index === OTP_LENGTH - 1) {
+        const fullCode = next.join("");
+        if (fullCode.length === OTP_LENGTH) {
+          Keyboard.dismiss();
+          attemptVerify(fullCode);
+        }
+      }
+      return next;
+    });
+
+    if (clean && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (index, event) => {
+    if (event.nativeEvent.key === "Backspace" && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  return (
+    <View style={styles.stepBody}>
+      <Image source={require("../../assets/bannerlogin.png")} style={styles.banner} contentFit="contain" />
+
+      <View style={styles.centerText}>
+        <Text style={styles.title}>Verification</Text>
+        <Text style={styles.subtitle}>We just sent you an SMS With 6 digit verification code on your number</Text>
+      </View>
+
+      <View style={styles.otpRow}>
+        {digits.map((digit, index) => (
+          <TextInput
+            key={index}
+            ref={(el) => {
+              inputRefs.current[index] = el;
+            }}
+            value={digit}
+            editable={!isVerifying}
+            onChangeText={(value) => setDigitAt(index, value)}
+            onKeyPress={(event) => handleKeyPress(index, event)}
+            keyboardType="number-pad"
+            maxLength={1}
+            style={[
+              styles.otpBox,
+              error ? styles.otpBoxError : digit ? styles.otpBoxFilled : styles.otpBoxEmpty,
+            ]}
+          />
+        ))}
+      </View>
+
+      <View style={styles.errorSlot}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
+
+      <Pressable
+        disabled={code.length !== OTP_LENGTH || isVerifying}
+        onPress={() => attemptVerify(code)}
+        style={[styles.primaryButton, code.length !== OTP_LENGTH || isVerifying ? { opacity: 0.5 } : null]}
+      >
+        {isVerifying ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Verify</Text>}
+      </Pressable>
+
+      <View style={styles.footerLinks}>
+        {secondsLeft > 0 ? (
+          <Text style={styles.footerMuted}>Resend code in 0:{String(secondsLeft).padStart(2, "0")}</Text>
+        ) : (
+          <Pressable onPress={() => setSecondsLeft(RESEND_SECONDS)}>
+            <Text style={styles.footerLink}>Resend OTP</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={onBack}>
+          <Text style={styles.footerMutedUnderline}>Change mobile number</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export default function LoginScreen() {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { login } = useAuth();
+  const [step, setStep] = useState("phone");
+  const [phone, setPhone] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSendOtp = () => {
+    if (isSending) return;
+    setIsSending(true);
+    setTimeout(() => {
+      setIsSending(false);
+      setStep("otp");
+    }, 700);
+  };
+
+  const handleVerified = async () => {
+    await login(phone);
+    setTimeout(() => navigation.goBack(), 400);
+  };
+
+  const handleBack = () => {
+    if (step === "otp") {
+      setStep("phone");
+    } else {
+      navigation.goBack();
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.white }}>
+      <Pressable onPress={handleBack} style={[styles.backButton, { top: insets.top + 16 }]} hitSlop={8}>
+        <Ionicons name="arrow-back" size={20} color="#333" />
+      </Pressable>
+
+      {step === "phone" ? (
+        <PhoneStep phone={phone} onChange={setPhone} onSubmit={handleSendOtp} isSending={isSending} />
+      ) : (
+        <OtpStep onVerified={handleVerified} onBack={() => setStep("phone")} />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  backButton: {
+    position: "absolute",
+    left: 20,
+    zIndex: 20,
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+    backgroundColor: "#f2f2f2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepBody: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 72, paddingBottom: 24 },
+  banner: { width: 260, height: 200 },
+  centerText: { marginTop: 20, alignItems: "center" },
+  title: { fontSize: 26, fontWeight: "900", color: "#222" },
+  subtitle: { marginTop: 8, fontSize: 13, fontWeight: "600", color: "#9b9b9b", textAlign: "center", maxWidth: 280, lineHeight: 19 },
+  phoneField: {
+    marginTop: 32,
+    height: 56,
+    width: "100%",
+    borderRadius: 12,
+    backgroundColor: "#f2f2f2",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  flag: { fontSize: 18 },
+  code: { fontSize: 15, fontWeight: "900", color: "#4a4a4a" },
+  divider: { height: 24, width: 1, backgroundColor: "#d5d5d5" },
+  phoneInput: { flex: 1, fontSize: 16, fontWeight: "700", color: "#333" },
+  primaryButton: {
+    marginTop: 24,
+    height: 54,
+    width: "100%",
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: { fontSize: 16, fontWeight: "800", color: colors.white },
+  otpRow: { marginTop: 32, flexDirection: "row", justifyContent: "space-between", width: "100%", maxWidth: 320, gap: 8 },
+  otpBox: {
+    height: 56,
+    width: 48,
+    borderRadius: 12,
+    borderWidth: 2,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#333",
+  },
+  otpBoxEmpty: { borderColor: "#eee", backgroundColor: "#f8f8f8" },
+  otpBoxFilled: { borderColor: colors.primary, backgroundColor: colors.white },
+  otpBoxError: { borderColor: colors.favoriteRed, backgroundColor: colors.white },
+  errorSlot: { marginTop: 12, minHeight: 20 },
+  errorText: { fontSize: 12, fontWeight: "800", color: colors.favoriteRed, textAlign: "center" },
+  footerLinks: { marginTop: Platform.select({ ios: 4, android: 4 }), alignItems: "center", gap: 16 },
+  footerMuted: { fontSize: 13, fontWeight: "700", color: "#9b9b9b" },
+  footerLink: { fontSize: 13, fontWeight: "800", color: colors.primary },
+  footerMutedUnderline: { fontSize: 13, fontWeight: "700", color: "#7a7a7a", textDecorationLine: "underline" },
+});

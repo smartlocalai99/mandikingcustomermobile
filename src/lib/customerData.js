@@ -1,0 +1,181 @@
+import { getSupabase } from "./supabase";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function normalizePhone(phone) {
+  let digits = String(phone ?? "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  if (!/^\d{10}$/.test(digits)) {
+    throw new Error("Enter a valid ten-digit mobile number.");
+  }
+  return digits;
+}
+
+export function addressToRow(customerPhone, address) {
+  return {
+    ...(address.id ? { id: address.id } : {}),
+    customer_phone: normalizePhone(customerPhone),
+    label: address.label,
+    address_line: address.line,
+    landmark: address.landmark || null,
+    contact_phone: address.phone || null,
+    is_default: Boolean(address.isDefault),
+    lat: address.lat ?? null,
+    lng: address.lng ?? null,
+  };
+}
+
+export function addressFromRow(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    line: row.address_line,
+    landmark: row.landmark ?? "",
+    phone: row.contact_phone ?? "",
+    isDefault: Boolean(row.is_default),
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
+  };
+}
+
+export function orderToRow(customerPhone, order) {
+  return {
+    id: order.id,
+    customer_phone: normalizePhone(customerPhone),
+    items: order.items ?? [],
+    total_items: Number(order.totalItems ?? 0),
+    subtotal: Number(order.subtotal ?? order.total ?? 0),
+    discount: Number(order.discount ?? 0),
+    delivery_fee: Number(order.deliveryFee ?? 0),
+    total: Number(order.total ?? 0),
+    status: order.status ?? "preparing",
+    delivery_address: order.deliveryAddress ?? {},
+    payment_method: order.paymentMethod ?? null,
+    placed_at: order.placedAt ?? new Date().toISOString(),
+    ordered_at: order.orderedAt ?? order.placedAt ?? new Date().toISOString(),
+    picked_up_at: order.pickedUpAt ?? null,
+    delivered_at: order.deliveredAt ?? null,
+  };
+}
+
+export function orderFromRow(row) {
+  return {
+    id: row.id,
+    items: row.items ?? [],
+    totalItems: Number(row.total_items),
+    subtotal: Number(row.subtotal),
+    discount: Number(row.discount),
+    deliveryFee: Number(row.delivery_fee),
+    total: Number(row.total),
+    status: row.status,
+    deliveryAddress: row.delivery_address ?? {},
+    paymentMethod: row.payment_method ?? null,
+    placedAt: row.placed_at,
+    orderedAt: row.ordered_at ?? row.placed_at,
+    pickedUpAt: row.picked_up_at ?? null,
+    deliveredAt: row.delivered_at ?? null,
+  };
+}
+
+function throwIfError(error) {
+  if (error) throw error;
+}
+
+export async function upsertCustomer(phone, client = getSupabase()) {
+  const normalized = normalizePhone(phone);
+  const { data, error } = await client
+    .from("customers")
+    .upsert(
+      { phone: normalized, updated_at: new Date().toISOString() },
+      { onConflict: "phone" }
+    )
+    .select()
+    .single();
+  throwIfError(error);
+  return data;
+}
+
+export async function listAddresses(phone, client = getSupabase()) {
+  const { data, error } = await client
+    .from("customer_addresses")
+    .select("*")
+    .eq("customer_phone", normalizePhone(phone))
+    .order("created_at", { ascending: true });
+  throwIfError(error);
+  return (data ?? []).map(addressFromRow);
+}
+
+export async function createAddress(phone, address, client = getSupabase()) {
+  const row = addressToRow(phone, address);
+  if (row.id && !UUID_PATTERN.test(row.id)) delete row.id;
+  const { data, error } = await client
+    .from("customer_addresses")
+    .insert(row)
+    .select()
+    .single();
+  throwIfError(error);
+  return addressFromRow(data);
+}
+
+export async function updateAddress(phone, id, address, client = getSupabase()) {
+  const { id: ignoredId, customer_phone: ignoredPhone, ...changes } = addressToRow(phone, address);
+  void ignoredId;
+  void ignoredPhone;
+  const { data, error } = await client
+    .from("customer_addresses")
+    .update(changes)
+    .eq("customer_phone", normalizePhone(phone))
+    .eq("id", id)
+    .select()
+    .single();
+  throwIfError(error);
+  return addressFromRow(data);
+}
+
+export async function deleteAddress(phone, id, client = getSupabase()) {
+  const { error } = await client
+    .from("customer_addresses")
+    .delete()
+    .eq("customer_phone", normalizePhone(phone))
+    .eq("id", id);
+  throwIfError(error);
+}
+
+export async function makeDefaultAddress(phone, id, client = getSupabase()) {
+  const normalized = normalizePhone(phone);
+  const { error: clearError } = await client
+    .from("customer_addresses")
+    .update({ is_default: false })
+    .eq("customer_phone", normalized);
+  throwIfError(clearError);
+
+  const { data, error } = await client
+    .from("customer_addresses")
+    .update({ is_default: true })
+    .eq("customer_phone", normalized)
+    .eq("id", id)
+    .select()
+    .single();
+  throwIfError(error);
+  return addressFromRow(data);
+}
+
+export async function listOrders(phone, client = getSupabase()) {
+  const { data, error } = await client
+    .from("customer_orders")
+    .select("*")
+    .eq("customer_phone", normalizePhone(phone))
+    .order("placed_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []).map(orderFromRow);
+}
+
+export async function createOrder(phone, order, client = getSupabase()) {
+  const { data, error } = await client
+    .from("customer_orders")
+    .insert(orderToRow(phone, order))
+    .select()
+    .single();
+  throwIfError(error);
+  return orderFromRow(data);
+}

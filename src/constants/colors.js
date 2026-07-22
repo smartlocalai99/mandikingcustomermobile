@@ -1,0 +1,25 @@
+// Same palette as the customer web app (smartrestaicustomer), kept in sync
+// by hand since the two apps don't share a build pipeline.
+export const colors = {
+  primary: "#32120d",
+  primaryDark: "#241610",
+  accentRed: "#b3402a",
+  accentRedBright: "#b63b2d",
+  favoriteRed: "#ef4f61",
+  gold: "#f4c45f",
+  success: "#3c7c5b",
+  danger: "#c0402a",
+  dangerBg: "#fdf1ef",
+  warningBg: "#fdf6ea",
+  warningText: "#8a5a10",
+  cream: "#f5f5f5",
+  creamAlt: "#f3ede4",
+  offWhite: "#f7f0e8",
+  border: "#f0e9e0",
+  borderAlt: "#e4dcd2",
+  textPrimary: "#241610",
+  textSecondary: "#5f554c",
+  textMuted: "#8b8580",
+  textFaint: "#a99a8c",
+  white: "#ffffff",
+};
