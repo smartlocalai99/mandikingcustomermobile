@@ -1,0 +1,22 @@
+export const customerDesign = {
+  colors: {
+    primary: "#32120d",
+    primaryDark: "#241610",
+    favoriteRed: "#ef4f61",
+    gold: "#f4c45f",
+    priceBadge: "#ffdf3f",
+    white: "#ffffff",
+    surface: "#f5f5fa",
+    mutedText: "#8b8580",
+  },
+  spacing: { page: 20, section: 16, card: 12 },
+  radii: { card: 20, sheet: 28, control: 12, pill: 999 },
+  typography: { heading: 20, body: 13, caption: 11 },
+  toggle: {
+    vegAsset: "./assets/veg.webp",
+    nonVegAsset: "./assets/nonveg.webp",
+    width: 80,
+    height: 32,
+  },
+  categoryLabels: ["Mandi", "Starters", "Rotis", "Desserts"],
+};

@@ -25,7 +25,7 @@
 
 **Files:**
 - Create: `docs/superpowers/checklists/2026-07-23-customer-parity-checklist.md`
-- Create: `src/constants/customerDesign.js`
+- Create: `src/constants/customerDesign.mjs`
 - Modify: `src/constants/colors.js`
 - Test: `tests/customerDesign.test.mjs`
 
@@ -53,7 +53,7 @@ test("customer design constants preserve web category order and toggle assets", 
 
 - [ ] **Step 3: Implement the shared tokens**
 
-  Add the exact values already used by the web/mobile surfaces (primary brown `#32120d`, favorite red `#ef4f61`, yellow price badge `#ffdf3f`, white surface, muted text, shared radii/spacing) and export them as plain serializable objects. Update `colors.js` to consume the shared values without changing unrelated screen colors.
+  Add the exact values already used by the web/mobile surfaces (primary brown `#32120d`, favorite red `#ef4f61`, yellow price badge `#ffdf3f`, white surface, muted text, shared radii/spacing) in `customerDesign.mjs` and export them as plain serializable objects. Update `colors.js` to consume the shared values without changing unrelated screen colors.
 
 - [ ] **Step 4: Run the focused test**
 
@@ -62,7 +62,7 @@ test("customer design constants preserve web category order and toggle assets", 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/superpowers/checklists/2026-07-23-customer-parity-checklist.md src/constants/customerDesign.js src/constants/colors.js tests/customerDesign.test.mjs
+git add docs/superpowers/checklists/2026-07-23-customer-parity-checklist.md src/constants/customerDesign.mjs src/constants/colors.js tests/customerDesign.test.mjs
 git commit -m "chore: establish native customer parity baseline"
 ```
 

@@ -1,12 +1,14 @@
 // Same palette as the customer web app (smartrestaicustomer), kept in sync
 // by hand since the two apps don't share a build pipeline.
+import { customerDesign } from "./customerDesign.mjs";
+
 export const colors = {
-  primary: "#32120d",
-  primaryDark: "#241610",
+  primary: customerDesign.colors.primary,
+  primaryDark: customerDesign.colors.primaryDark,
   accentRed: "#b3402a",
   accentRedBright: "#b63b2d",
-  favoriteRed: "#ef4f61",
-  gold: "#f4c45f",
+  favoriteRed: customerDesign.colors.favoriteRed,
+  gold: customerDesign.colors.gold,
   success: "#3c7c5b",
   danger: "#c0402a",
   dangerBg: "#fdf1ef",
@@ -21,5 +23,5 @@ export const colors = {
   textSecondary: "#5f554c",
   textMuted: "#8b8580",
   textFaint: "#a99a8c",
-  white: "#ffffff",
+  white: customerDesign.colors.white,
 };
