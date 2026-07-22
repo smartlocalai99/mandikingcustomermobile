@@ -25,8 +25,17 @@ test("ignores malformed sections without an items array", () => {
 });
 
 test("always returns the four primary categories in web order with fallbacks", () => {
-  const categories = getPrimaryCategories([{ id: "rotis-remote", label: "Rotis", imageUrl: "remote" }]);
+  const categories = getPrimaryCategories([
+    { id: "rotis-remote", label: "Rotis", imageUrl: "https://cdn.example.com/rotis.png" },
+  ]);
   assert.deepEqual(categories.map((category) => category.label), ["Mandi", "Starters", "Rotis", "Desserts"]);
-  assert.equal(categories[2].imageUrl, "remote");
+  assert.equal(categories[2].imageUrl, "https://cdn.example.com/rotis.png");
+  assert.equal(categories[0].imageUrl, "./assets/mandi-category.png");
+});
+
+test("falls back to the bundled asset when the remote image isn't an absolute URL", () => {
+  // Matches the real menu_categories seed data: web-relative paths like
+  // "/mandi9.png" that only resolve inside the Next.js app's public/ dir.
+  const categories = getPrimaryCategories([{ id: "mandi-remote", label: "Mandi", imageUrl: "/mandi9.png" }]);
   assert.equal(categories[0].imageUrl, "./assets/mandi-category.png");
 });

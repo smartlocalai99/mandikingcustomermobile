@@ -30,6 +30,15 @@ export function getVisibleMenuSections(sections, { vegOnly = false, searchQuery 
     .filter((section) => section.items.length > 0);
 }
 
+// The owner app's menu_categories table was seeded with paths meant for the
+// web app's public/ directory (e.g. "/mandi9.png"), which React Native's
+// Image component cannot resolve. Only trust a remote image if it's an
+// absolute http(s) URL (e.g. Supabase storage); anything else — including
+// those web-relative paths — falls back to the bundled native asset.
+function isUsableRemoteUrl(url) {
+  return typeof url === "string" && /^https?:\/\//i.test(url);
+}
+
 export function getPrimaryCategories(categories = []) {
   return customerDesign.categoryLabels.map((label) => {
     const remote = categories.find((category) => category.label?.trim().toLowerCase() === label.toLowerCase());
@@ -37,7 +46,7 @@ export function getPrimaryCategories(categories = []) {
     return {
       id: remote?.id ?? `fallback-${label.toLowerCase()}`,
       label,
-      imageUrl: remote?.imageUrl || fallback.imageUrl,
+      imageUrl: isUsableRemoteUrl(remote?.imageUrl) ? remote.imageUrl : fallback.imageUrl,
       sectionId: remote?.sectionId ?? null,
       sectionTitle: remote?.sectionTitle || fallback.sectionTitle,
     };
