@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getSupabase } from "../lib/supabase";
 import {
   getRestaurantProfile,
@@ -7,7 +8,8 @@ import {
   listActiveMenu,
   listActiveOffers,
 } from "../lib/restaurantData";
-import { createTrailingRefresh } from "../lib/trailingRefresh";
+import { createTrailingRefresh } from "../lib/trailingRefresh.mjs";
+import { readMenuCache, writeMenuCache } from "../lib/menuCache.mjs";
 
 const MenuDataContext = createContext(null);
 
@@ -40,21 +42,38 @@ export function MenuDataProvider({ children }) {
         setProfile(nextProfile);
         setSections(nextSections);
         setOffers(nextOffers);
+        const nextCategories = await listActiveCategories(client);
+        const nextCategoryState = nextCategories.length > 0 ? nextCategories : FALLBACK_CATEGORIES;
+        if (!cancelled) {
+          setCategories(nextCategoryState);
+          await writeMenuCache(AsyncStorage, {
+            profile: nextProfile,
+            sections: nextSections,
+            offers: nextOffers,
+            categories: nextCategoryState,
+            savedAt: Date.now(),
+          });
+        }
       } catch {
-        // Existing fallback state remains usable.
+        // Existing cache/fallback state remains usable.
       } finally {
         if (!cancelled) setIsLoading(false);
       }
-
-      try {
-        const nextCategories = await listActiveCategories(client);
-        if (!cancelled && nextCategories.length > 0) setCategories(nextCategories);
-      } catch {
-        // Keep FALLBACK_CATEGORIES.
-      }
     });
 
-    refetch();
+    const hydrateAndRefresh = async () => {
+      const cached = await readMenuCache(AsyncStorage);
+      if (!cancelled && cached) {
+        setProfile(cached.profile);
+        setSections(cached.sections);
+        setOffers(cached.offers);
+        setCategories(cached.categories.length > 0 ? cached.categories : FALLBACK_CATEGORIES);
+        setIsLoading(false);
+      }
+      refetch();
+    };
+
+    hydrateAndRefresh();
 
     const channel = client
       .channel("public:menu-data")

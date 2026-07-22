@@ -1,6 +1,9 @@
-export function createTrailingRefresh(task) {
+export function createTrailingRefresh(task, { delayMs = 120 } = {}) {
   let current = null;
   let trailingRequested = false;
+
+  const delay = () =>
+    delayMs > 0 ? new Promise((resolve) => setTimeout(resolve, delayMs)) : Promise.resolve();
 
   return function refresh() {
     if (current) {
@@ -11,6 +14,7 @@ export function createTrailingRefresh(task) {
     current = (async () => {
       do {
         trailingRequested = false;
+        await delay();
         await task();
       } while (trailingRequested);
     })().finally(() => {

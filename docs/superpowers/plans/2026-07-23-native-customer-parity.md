@@ -132,7 +132,7 @@ git commit -m "feat: add native permission and location onboarding"
 **Files:**
 - Create: `src/lib/menuCache.mjs`
 - Modify: `src/context/MenuDataContext.js`
-- Modify: `src/lib/trailingRefresh.js`
+- Rename: `src/lib/trailingRefresh.js` to `src/lib/trailingRefresh.mjs`
 - Test: `tests/menuCache.test.mjs`, `tests/trailingRefresh.test.mjs`
 
 **Interfaces:**
@@ -154,7 +154,7 @@ git commit -m "feat: add native permission and location onboarding"
 
 - [ ] **Step 4: Verify and commit**
 
-  Run `npm test -- --test-name-pattern="cache|refresh"`, then run the complete `npm test`. Expected: PASS. Commit with `git add src/lib/menuCache.mjs src/context/MenuDataContext.js src/lib/trailingRefresh.js tests/menuCache.test.mjs tests/trailingRefresh.test.mjs && git commit -m "perf: hydrate and refresh menu data efficiently"`.
+  Run `npm test -- --test-name-pattern="cache|refresh"`, then run the complete `npm test`. Expected: PASS. Commit with `git add src/lib/menuCache.mjs src/context/MenuDataContext.js src/lib/trailingRefresh.mjs tests/menuCache.test.mjs tests/trailingRefresh.test.mjs && git commit -m "perf: hydrate and refresh menu data efficiently"`.
 
 ### Task 4: Make Home a visual and behavioral carbon copy
 
