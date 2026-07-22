@@ -3,8 +3,35 @@ import test from "node:test";
 import {
   getInstallationId,
   registerForPushNotifications,
+  startPushRegistration,
   submitPushRegistration,
 } from "../src/lib/pushRegistration.mjs";
+
+test("starts push registration immediately and refreshes it when the native token changes", async () => {
+  let registrations = 0;
+  let tokenListener;
+  let removed = false;
+
+  const cleanup = startPushRegistration({
+    register: async () => {
+      registrations += 1;
+    },
+    addPushTokenListener: (listener) => {
+      tokenListener = listener;
+      return { remove: () => { removed = true; } };
+    },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(registrations, 1);
+
+  tokenListener();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(registrations, 2);
+
+  cleanup();
+  assert.equal(removed, true);
+});
 
 test("reuses and creates a persisted installation id", async () => {
   const existing = {

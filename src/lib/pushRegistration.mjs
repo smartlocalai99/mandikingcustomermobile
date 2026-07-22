@@ -1,5 +1,15 @@
 const INSTALLATION_KEY = "smartrest_push_installation_id";
 
+export function startPushRegistration({ register, addPushTokenListener }) {
+  const refreshRegistration = () => {
+    Promise.resolve(register()).catch(() => {});
+  };
+
+  refreshRegistration();
+  const subscription = addPushTokenListener(refreshRegistration);
+  return () => subscription.remove();
+}
+
 export async function getInstallationId(storage, createId) {
   const existing = await storage.getItem(INSTALLATION_KEY);
   if (existing) return existing;

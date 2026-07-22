@@ -9,6 +9,7 @@ import {
 import * as Notifications from "expo-notifications";
 import { getSupabase } from "../lib/supabase";
 import { registerPushToken, syncBadgeCount } from "../lib/notificationsData";
+import { startPushRegistration } from "../lib/pushRegistration.mjs";
 import { useAuth } from "./AuthContext";
 
 const NotificationsContext = createContext(null);
@@ -32,20 +33,17 @@ export function NotificationsProvider({ children }) {
   useEffect(() => {
     if (!isLoggedIn) {
       setNotifications([]);
-      return;
     }
-    registerPushToken(client).catch(() => {});
-  }, [isLoggedIn, client]);
+  }, [isLoggedIn]);
 
   useEffect(() => {
-    if (!isLoggedIn) return undefined;
-    const subscription = Notifications.addPushTokenListener(() => {
+    return startPushRegistration({
+      register: () => registerPushToken(client),
       // The listener receives a native APNs/FCM token. Fetch a new Expo token
       // before submitting so the server always stores the correct token type.
-      registerPushToken(client).catch(() => {});
+      addPushTokenListener: (listener) => Notifications.addPushTokenListener(listener),
     });
-    return () => subscription.remove();
-  }, [isLoggedIn, client]);
+  }, [client]);
 
   const ingestPush = useCallback((content = {}, identifier) => {
     const next = {
