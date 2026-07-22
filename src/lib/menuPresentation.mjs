@@ -7,6 +7,12 @@ const FALLBACKS = {
   Desserts: { sectionTitle: "Desserts", imageUrl: "./assets/desserts-category.png" },
 };
 
+export function normalizeMenuSections(sections) {
+  return (Array.isArray(sections) ? sections : [])
+    .filter((section) => Array.isArray(section?.items))
+    .map((section) => ({ ...section, items: section.items.filter(Boolean) }));
+}
+
 function matchesSearch(item, sectionTitle, query) {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
@@ -14,7 +20,7 @@ function matchesSearch(item, sectionTitle, query) {
 }
 
 export function getVisibleMenuSections(sections, { vegOnly = false, searchQuery = "" } = {}) {
-  return sections
+  return normalizeMenuSections(sections)
     .map((section) => ({
       ...section,
       items: section.items

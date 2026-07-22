@@ -13,8 +13,8 @@ export function getMenuSearchSuggestions(sections, query, vegOnly = false) {
   const seen = new Set();
   const suggestions = [];
 
-  sections.forEach((section) => {
-    section.items.forEach((item) => {
+  (Array.isArray(sections) ? sections : []).forEach((section) => {
+    (Array.isArray(section?.items) ? section.items : []).forEach((item) => {
       if (vegOnly && !item.isVeg) return;
       if (!matchesSearch(item, section.heading, normalizedQuery)) return;
       if (seen.has(item.id)) return;

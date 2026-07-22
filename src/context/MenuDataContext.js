@@ -10,7 +10,7 @@ import {
 } from "../lib/restaurantData";
 import { createTrailingRefresh } from "../lib/trailingRefresh.mjs";
 import { readMenuCache, writeMenuCache } from "../lib/menuCache.mjs";
-import { getPrimaryCategories } from "../lib/menuPresentation.mjs";
+import { getPrimaryCategories, normalizeMenuSections } from "../lib/menuPresentation.mjs";
 
 const MenuDataContext = createContext(null);
 
@@ -36,7 +36,7 @@ export function MenuDataProvider({ children }) {
         ]);
         if (cancelled) return;
         setProfile(nextProfile);
-        setSections(nextSections);
+        setSections(normalizeMenuSections(nextSections));
         setOffers(nextOffers);
         const nextCategories = await listActiveCategories(client);
         const nextCategoryState = getPrimaryCategories(nextCategories);
@@ -61,7 +61,7 @@ export function MenuDataProvider({ children }) {
       const cached = await readMenuCache(AsyncStorage);
       if (!cancelled && cached) {
         setProfile(cached.profile);
-        setSections(cached.sections);
+        setSections(normalizeMenuSections(cached.sections));
         setOffers(cached.offers);
         setCategories(getPrimaryCategories(cached.categories));
         setIsLoading(false);

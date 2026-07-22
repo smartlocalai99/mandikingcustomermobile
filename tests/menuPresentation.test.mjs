@@ -17,6 +17,13 @@ test("search uses the same filter and removes empty sections", () => {
   assert.deepEqual(getVisibleMenuSections(sections, { vegOnly: false, searchQuery: "mandi" }), [sections[0]]);
 });
 
+test("ignores malformed sections without an items array", () => {
+  assert.deepEqual(
+    getVisibleMenuSections([{ id: "broken", heading: "Broken" }, ...sections], { searchQuery: "" }),
+    sections,
+  );
+});
+
 test("always returns the four primary categories in web order with fallbacks", () => {
   const categories = getPrimaryCategories([{ id: "rotis-remote", label: "Rotis", imageUrl: "remote" }]);
   assert.deepEqual(categories.map((category) => category.label), ["Mandi", "Starters", "Rotis", "Desserts"]);

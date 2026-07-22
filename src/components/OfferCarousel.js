@@ -7,7 +7,8 @@ import { useCart } from "../context/CartContext";
 
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
 
-export default function OfferCarousel({ offers }) {
+export default function OfferCarousel({ offers = [] }) {
+  const safeOffers = Array.isArray(offers) ? offers : [];
   const { width } = useWindowDimensions();
   const { applyOffer } = useCart();
   const navigation = useNavigation();
@@ -20,16 +21,16 @@ export default function OfferCarousel({ offers }) {
   };
 
   useEffect(() => {
-    if (offers.length < 2) return undefined;
+    if (safeOffers.length < 2) return undefined;
     const id = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % offers.length;
+      const nextIndex = (activeIndex + 1) % safeOffers.length;
       scrollRef.current?.scrollTo({ x: nextIndex * width, animated: true });
       setActiveIndex(nextIndex);
     }, 4000);
     return () => clearInterval(id);
-  }, [activeIndex, offers.length, width]);
+  }, [activeIndex, safeOffers.length, width]);
 
-  if (offers.length === 0) return null;
+  if (safeOffers.length === 0) return null;
 
   return (
     <View style={styles.wrapper}>
@@ -40,10 +41,10 @@ export default function OfferCarousel({ offers }) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(event) => {
           const index = Math.round(event.nativeEvent.contentOffset.x / width);
-          setActiveIndex(Math.min(Math.max(index, 0), offers.length - 1));
+          setActiveIndex(Math.min(Math.max(index, 0), safeOffers.length - 1));
         }}
       >
-        {offers.map((offer) => (
+        {safeOffers.map((offer) => (
           <Pressable
             key={offer.id}
             onPress={() => handleOrderNow(offer)}
@@ -59,9 +60,9 @@ export default function OfferCarousel({ offers }) {
         ))}
       </ScrollView>
 
-      {offers.length > 1 ? (
+      {safeOffers.length > 1 ? (
         <View pointerEvents="none" style={styles.dots}>
-          {offers.map((offer, index) => (
+          {safeOffers.map((offer, index) => (
             <View
               key={offer.id}
               style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
