@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -12,10 +13,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { colors } from "../constants/colors";
 import { useAddresses } from "../context/AddressContext";
+import { requestForegroundLocation, reverseGeocodeCoordinates } from "../lib/locationPermissions.mjs";
 import EmptyState from "../components/EmptyState";
 
 const LABELS = [
@@ -32,7 +35,36 @@ function labelIcon(label) {
 
 function AddressSheet({ visible, initialValue, onClose, onSave, isSaving, saveError }) {
   const [form, setForm] = useState(initialValue ?? EMPTY_FORM);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locateError, setLocateError] = useState(null);
   const isValid = form.line.trim().length > 3;
+
+  const handleUseCurrentLocation = async () => {
+    setIsLocating(true);
+    setLocateError(null);
+    try {
+      const location = await requestForegroundLocation({
+        permissions: {
+          getForegroundPermissionsAsync: () => Location.getForegroundPermissionsAsync(),
+          requestForegroundPermissionsAsync: () => Location.requestForegroundPermissionsAsync(),
+        },
+        getCurrentPositionAsync: (options) => Location.getCurrentPositionAsync(options),
+        reverseGeocode: (latitude, longitude) => reverseGeocodeCoordinates(latitude, longitude),
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setForm((f) => ({
+        ...f,
+        line: location.line || f.line,
+        landmark: location.landmark || f.landmark,
+        lat: location.latitude,
+        lng: location.longitude,
+      }));
+    } catch (error) {
+      setLocateError(error);
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -57,6 +89,33 @@ function AddressSheet({ visible, initialValue, onClose, onSave, isSaving, saveEr
               );
             })}
           </View>
+
+          <Pressable disabled={isLocating} onPress={handleUseCurrentLocation} style={styles.locateButton}>
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+            )}
+            <Text style={styles.locateButtonText}>{isLocating ? "Finding your location…" : "Use current location"}</Text>
+          </Pressable>
+
+          {locateError ? (
+            <View style={styles.locateErrorRow}>
+              <Text style={styles.locateErrorText}>{locateError.message}</Text>
+              {locateError.canOpenSettings ? (
+                <Pressable onPress={() => Linking.openSettings()}>
+                  <Text style={styles.locateErrorLink}>Open Settings</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {form.lat != null && form.lng != null ? (
+            <View style={styles.locateConfirmedRow}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.locateConfirmedText}>Location attached — you can still edit the address below</Text>
+            </View>
+          ) : null}
 
           <Text style={styles.fieldLabel}>Address</Text>
           <TextInput
@@ -291,6 +350,23 @@ const styles = StyleSheet.create({
   labelButton: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 10 },
   labelButtonActive: { borderColor: colors.primary, backgroundColor: "#f5ecea" },
   labelButtonText: { fontSize: 13, fontWeight: "900", color: "#5f554c" },
+  locateButton: {
+    marginTop: 16,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  locateButtonText: { fontSize: 13, fontWeight: "900", color: colors.primary },
+  locateErrorRow: { marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  locateErrorText: { flex: 1, fontSize: 12, fontWeight: "700", color: colors.danger },
+  locateErrorLink: { fontSize: 12, fontWeight: "900", color: colors.primary },
+  locateConfirmedRow: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 6 },
+  locateConfirmedText: { fontSize: 11, fontWeight: "700", color: colors.success },
   fieldLabel: { marginTop: 16, fontSize: 12, fontWeight: "800", color: colors.textMuted },
   input: { marginTop: 4, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontWeight: "600", color: colors.textPrimary },
   inputMultiline: { minHeight: 56, textAlignVertical: "top" },

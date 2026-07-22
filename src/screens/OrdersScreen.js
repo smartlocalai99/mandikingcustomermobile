@@ -15,6 +15,22 @@ import OrderTrackingMap from "../components/OrderTrackingMap";
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
 const RIDER = { name: "Ravi Kumar", role: "Your delivery partner" };
 
+const STATUS_PILL_TONES = {
+  preparing: { backgroundColor: "#fff4de", color: "#a56a10" },
+  out_for_delivery: { backgroundColor: "#fff4de", color: "#a56a10" },
+  delivered: { backgroundColor: "#e8f5ee", color: colors.success },
+  cancelled: { backgroundColor: colors.dangerBg, color: colors.danger },
+};
+
+function StatusPill({ status, label }) {
+  const tone = STATUS_PILL_TONES[status] ?? STATUS_PILL_TONES.preparing;
+  return (
+    <View style={[styles.statusPill, { backgroundColor: tone.backgroundColor }]}>
+      <Text style={[styles.statusPillText, { color: tone.color }]}>{label}</Text>
+    </View>
+  );
+}
+
 function PreviousOrderCard({ order, accountPhone }) {
   const view = createOrderView(order, accountPhone);
 
@@ -25,9 +41,7 @@ function PreviousOrderCard({ order, accountPhone }) {
           <Text style={styles.previousOrderId} numberOfLines={1}>
             Order #{view.id}
           </Text>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusPillText}>{view.statusLabel}</Text>
-          </View>
+          <StatusPill status={order.status} label={view.statusLabel} />
         </View>
         <Text style={styles.previousDate}>{view.placedAtLabel}</Text>
       </View>
@@ -131,9 +145,7 @@ function CurrentOrder({ order, accountPhone, restaurantProfile }) {
         <View style={styles.detailsSection}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Text style={styles.detailsTitle}>Order Details</Text>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>{active.statusLabel}</Text>
-            </View>
+            <StatusPill status={order.status} label={active.statusLabel} />
           </View>
 
           <View style={{ marginTop: 10, gap: 8 }}>
@@ -209,6 +221,7 @@ export default function OrdersScreen() {
 
       {!isLoggedIn ? (
         <EmptyState
+          imageSource={require("../../assets/emptyplate.webp")}
           icon="receipt-outline"
           title="You haven't logged in"
           message="Please log in to view your orders."
@@ -230,6 +243,7 @@ export default function OrdersScreen() {
             <ActivityIndicator style={{ marginVertical: 48 }} color={colors.primary} />
           ) : isEmpty ? (
             <EmptyState
+              imageSource={require("../../assets/emptyplate.webp")}
               icon="fast-food-outline"
               title="Your first feast awaits"
               message="Place your first order and follow every delicious detail from our kitchen to your doorstep."

@@ -10,7 +10,15 @@ const { width: TRACK_WIDTH, height: TRACK_HEIGHT, trackPadding: TRACK_PADDING, k
 
 export default function VegToggle({ vegOnly, onChange }) {
   const dotStyle = useAnimatedStyle(() => ({
-    left: withSpring(vegOnly ? KNOB_LEFT_ON : KNOB_LEFT_OFF, { damping: 16, stiffness: 220 }),
+    // damping (16) was well under the critically-damped value for this
+    // stiffness (~2*sqrt(220) ≈ 30), so the knob oscillated past each edge
+    // before settling — the "vibrating" toggle. overshootClamping stops it
+    // dead at the target instead of ever crossing it.
+    left: withSpring(vegOnly ? KNOB_LEFT_ON : KNOB_LEFT_OFF, {
+      damping: 30,
+      stiffness: 220,
+      overshootClamping: true,
+    }),
   }));
 
   return (
