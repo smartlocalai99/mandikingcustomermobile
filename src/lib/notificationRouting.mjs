@@ -1,3 +1,13 @@
+export function createNotificationDeduper() {
+  const handled = new Set();
+  return (identifier) => {
+    if (!identifier) return false;
+    if (handled.has(identifier)) return true;
+    handled.add(identifier);
+    return false;
+  };
+}
+
 export function notificationRoute(content = {}) {
   const offerId =
     typeof content?.data?.offerId === "string" ? content.data.offerId.trim() : "";

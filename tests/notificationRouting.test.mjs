@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { notificationRoute } from "../src/lib/notificationRouting.mjs";
+import { createNotificationDeduper, notificationRoute } from "../src/lib/notificationRouting.mjs";
+
+test("deduplicates a notification response identifier", () => {
+  const alreadyHandled = createNotificationDeduper();
+  assert.equal(alreadyHandled("push-1"), false);
+  assert.equal(alreadyHandled("push-1"), true);
+  assert.equal(alreadyHandled("push-2"), false);
+  assert.equal(alreadyHandled(null), false);
+});
 
 test("routes linked pushes to the offer", () => {
   assert.deepEqual(
