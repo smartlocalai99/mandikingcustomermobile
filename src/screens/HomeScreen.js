@@ -7,6 +7,7 @@ import { useAddresses } from "../context/AddressContext";
 import { useAuth } from "../context/AuthContext";
 import { useMenuData } from "../context/MenuDataContext";
 import { useNotifications } from "../context/NotificationsContext";
+import { useOnboarding } from "../context/OnboardingContext";
 import { matchesSearch, getMenuSearchSuggestions } from "../lib/menuSearch";
 import VegToggle from "../components/VegToggle";
 import SearchBar from "../components/SearchBar";
@@ -126,6 +127,7 @@ function RestaurantInfo({ profile }) {
 export default function HomeScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAuth();
+  const { savedLocation } = useOnboarding();
   const { defaultAddress } = useAddresses();
   const { profile, sections, offers, categories, isLoading } = useMenuData();
   const { unreadCount } = useNotifications();
@@ -147,7 +149,9 @@ export default function HomeScreen({ navigation, route }) {
   const sectionNodes = useRef({});
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
-  const displayAddress = isLoggedIn && defaultAddress?.line?.trim() ? defaultAddress.line.trim() : "Kadapa";
+  const displayAddress = isLoggedIn && defaultAddress?.line?.trim()
+    ? defaultAddress.line.trim()
+    : savedLocation?.landmark || savedLocation?.line?.split(",")[0]?.trim() || "Kadapa";
 
   const recommendedItems = useMemo(
     () => sections.flatMap((section) => section.items.filter((item) => item.isBestseller)),
