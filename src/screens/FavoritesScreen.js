@@ -11,7 +11,8 @@ export default function FavoritesScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { isLoggedIn, isHydrated } = useAuth();
-  const { items } = useFavorites();
+  const { items: favoriteItems = [] } = useFavorites();
+  const items = Array.isArray(favoriteItems) ? favoriteItems : [];
 
   if (!isHydrated) return null;
 

@@ -202,7 +202,8 @@ export default function OrdersScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, isLoggedIn, isHydrated } = useAuth();
-  const { orders, isLoadingOrders, ordersError, refreshOrders } = useOrders();
+  const { orders: orderList = [], isLoadingOrders, ordersError, refreshOrders } = useOrders();
+  const orders = Array.isArray(orderList) ? orderList : [];
   const [selectedTab, setSelectedTab] = useState("current");
 
   if (!isHydrated) return null;

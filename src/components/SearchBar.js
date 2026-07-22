@@ -3,8 +3,9 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 
-export default function SearchBar({ value, onChange, suggestions = [], onSuggestionSelect = () => {}, isFocused, onFocus, onBlur }) {
-  const hasSuggestions = isFocused && value.trim().length > 0 && suggestions.length > 0;
+export default function SearchBar({ value = "", onChange, suggestions = [], onSuggestionSelect = () => {}, isFocused, onFocus, onBlur }) {
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+  const hasSuggestions = isFocused && value.trim().length > 0 && safeSuggestions.length > 0;
 
   return (
     <View style={styles.wrapper}>
@@ -27,7 +28,7 @@ export default function SearchBar({ value, onChange, suggestions = [], onSuggest
 
       {hasSuggestions ? (
         <View style={styles.suggestions}>
-          {suggestions.map((suggestion) => (
+          {safeSuggestions.map((suggestion) => (
             <Pressable
               key={suggestion.id}
               onPress={() => onSuggestionSelect(suggestion.title)}

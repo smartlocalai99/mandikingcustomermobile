@@ -127,7 +127,9 @@ export default function HomeScreen({ navigation, route }) {
   const { isLoggedIn } = useAuth();
   const { savedLocation } = useOnboarding();
   const { defaultAddress } = useAddresses();
-  const { profile, sections, offers, categories, isLoading } = useMenuData();
+  const { profile, sections: menuSections = [], offers: menuOffers = [], categories, isLoading } = useMenuData();
+  const sections = Array.isArray(menuSections) ? menuSections : [];
+  const offers = Array.isArray(menuOffers) ? menuOffers : [];
   const { unreadCount } = useNotifications();
 
   const [vegOnly, setVegOnly] = useState(false);
@@ -181,7 +183,7 @@ export default function HomeScreen({ navigation, route }) {
         key: "Recommended",
         title: "Recommended",
         badgeText: "",
-        rows: chunk(searchedRecommendedItems, 2),
+        data: chunk(searchedRecommendedItems, 2),
       });
     }
     visibleMenuSections.forEach((section) => {
@@ -189,7 +191,7 @@ export default function HomeScreen({ navigation, route }) {
         key: section.heading,
         title: section.heading,
         badgeText: section.badgeText,
-        rows: chunk(section.items, 2),
+        data: chunk(section.items, 2),
       });
     });
     return nextSections;

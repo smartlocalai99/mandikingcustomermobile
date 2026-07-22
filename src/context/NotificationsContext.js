@@ -73,7 +73,8 @@ export function NotificationsProvider({ children }) {
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
   }, []);
 
-  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const unreadCount = safeNotifications.filter((notification) => !notification.isRead).length;
 
   useEffect(() => {
     syncBadgeCount(unreadCount);
@@ -82,7 +83,7 @@ export function NotificationsProvider({ children }) {
   const refresh = useCallback(async () => {}, []);
   const value = useMemo(
     () => ({
-      notifications,
+      notifications: safeNotifications,
       unreadCount,
       isLoading: false,
       ingestPush,

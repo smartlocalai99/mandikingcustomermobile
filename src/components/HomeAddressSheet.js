@@ -10,10 +10,11 @@ import { getDisplayLocation } from "../lib/locationDisplay.mjs";
 export default function HomeAddressSheet({ visible, onClose }) {
   const navigation = useNavigation();
   const { isLoggedIn } = useAuth();
-  const { addresses, defaultAddress, setDefault, isLoadingAddresses, isMutatingAddress, addressError } =
+  const { addresses = [], defaultAddress, setDefault, isLoadingAddresses, isMutatingAddress, addressError } =
     useAddresses();
+  const safeAddresses = Array.isArray(addresses) ? addresses : [];
   const { savedLocation } = useOnboarding();
-  const hasSavedAddresses = isLoggedIn && addresses.length > 0;
+  const hasSavedAddresses = isLoggedIn && safeAddresses.length > 0;
 
   const handleSelect = async (address) => {
     if (address.id === defaultAddress?.id) {
@@ -53,7 +54,7 @@ export default function HomeAddressSheet({ visible, onClose }) {
             <ActivityIndicator style={{ marginVertical: 24 }} color={colors.primary} />
           ) : hasSavedAddresses ? (
             <ScrollView style={{ marginTop: 16, maxHeight: 320 }}>
-              {addresses.map((address) => {
+              {safeAddresses.map((address) => {
                 const isSelected = address.id === defaultAddress?.id;
                 return (
                   <Pressable
