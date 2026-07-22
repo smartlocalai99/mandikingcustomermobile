@@ -64,6 +64,7 @@ function PreviousOrders({ orders, accountPhone }) {
   if (orders.length === 0) {
     return (
       <EmptyState
+        imageSource={require("../../assets/emptyplate.webp")}
         icon="receipt-outline"
         title="No previous orders yet"
         message="Your completed and cancelled orders will appear here."

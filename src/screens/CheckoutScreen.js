@@ -12,6 +12,7 @@ import { useMenuData } from "../context/MenuDataContext";
 import { useOrders } from "../context/OrdersContext";
 import { usePayment } from "../context/PaymentContext";
 import { calculateDeliveryFee } from "../lib/deliveryFee";
+import { playOrderSuccessSound } from "../lib/soundAssets";
 import EmptyState from "../components/EmptyState";
 
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
@@ -129,6 +130,7 @@ export default function CheckoutScreen() {
       const savedOrder = await placeOrder(order);
       clearCart();
       setPlacedOrder(savedOrder);
+      playOrderSuccessSound();
     } catch {
       setPlacementError("Could not place your order. Your cart is still safe.");
     } finally {
@@ -149,6 +151,7 @@ export default function CheckoutScreen() {
         <SuccessScreen orderId={placedOrder.id} total={placedOrder.total} navigation={navigation} />
       ) : items.length === 0 ? (
         <EmptyState
+          imageSource={require("../../assets/emptyplate.webp")}
           icon="basket-outline"
           title="Your basket is waiting"
           message="The feast hasn't started yet. Pick something delicious and let's fill this plate."

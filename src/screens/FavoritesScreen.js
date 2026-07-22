@@ -27,6 +27,7 @@ export default function FavoritesScreen() {
 
       {!isLoggedIn ? (
         <EmptyState
+          imageSource={require("../../assets/emptyplate.webp")}
           icon="heart-outline"
           title="You haven't logged in"
           message="Please log in to view your favourites."
@@ -35,6 +36,7 @@ export default function FavoritesScreen() {
         />
       ) : isEmpty ? (
         <EmptyState
+          imageSource={require("../../assets/emptyplate.webp")}
           icon="heart-outline"
           title="Save room for your favourites"
           message="Tap the heart on dishes you love and they'll be waiting for you here."

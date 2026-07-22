@@ -17,6 +17,10 @@ export const customerDesign = {
     nonVegAsset: "./assets/nonveg.webp",
     width: 80,
     height: 32,
+    trackPadding: 4,
+    knobSize: 24,
+    knobLeftOff: 4,
+    knobLeftOn: 52,
   },
   categoryLabels: ["Mandi", "Starters", "Rotis", "Desserts"],
 };

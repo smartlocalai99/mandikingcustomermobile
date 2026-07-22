@@ -2,13 +2,15 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { colors } from "../constants/colors";
+import { customerDesign } from "../constants/customerDesign.mjs";
 
 const VEG_IMAGE = require("../../assets/veg.webp");
 const NON_VEG_IMAGE = require("../../assets/nonveg.webp");
+const { width: TRACK_WIDTH, height: TRACK_HEIGHT, trackPadding: TRACK_PADDING, knobSize: KNOB_SIZE, knobLeftOff: KNOB_LEFT_OFF, knobLeftOn: KNOB_LEFT_ON } = customerDesign.toggle;
 
 export default function VegToggle({ vegOnly, onChange }) {
   const dotStyle = useAnimatedStyle(() => ({
-    left: withSpring(vegOnly ? 52 : 4, { damping: 16, stiffness: 220 }),
+    left: withSpring(vegOnly ? KNOB_LEFT_ON : KNOB_LEFT_OFF, { damping: 16, stiffness: 220 }),
   }));
 
   return (
@@ -31,12 +33,14 @@ export default function VegToggle({ vegOnly, onChange }) {
 
 const styles = StyleSheet.create({
   track: {
-    width: 80,
-    height: 32,
+    width: TRACK_WIDTH,
+    height: TRACK_HEIGHT,
     borderRadius: 999,
     backgroundColor: colors.white,
-    padding: 4,
+    padding: TRACK_PADDING,
     justifyContent: "center",
+    overflow: "hidden",
+    position: "relative",
   },
   label: {
     position: "absolute",
@@ -50,11 +54,14 @@ const styles = StyleSheet.create({
   labelRight: { right: 10 },
   dot: {
     position: "absolute",
-    top: 4,
-    height: 24,
-    width: 24,
-    borderRadius: 12,
+    top: TRACK_PADDING,
+    height: KNOB_SIZE,
+    width: KNOB_SIZE,
+    borderRadius: KNOB_SIZE / 2,
     backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
   },
-  dotImage: { height: 22, width: 22 },
+  dotImage: { height: KNOB_SIZE - 4, width: KNOB_SIZE - 4 },
 });
