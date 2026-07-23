@@ -99,14 +99,21 @@ export function AddressProvider({ children }) {
     setIsMutatingAddress(true);
     setAddressError("");
     try {
-      await requestAddresses(() => upsertCustomer(phone, { name: user?.name || "" }));
       // Do not replay an INSERT after a timeout: the server may have accepted
       // it even if the response was lost. Reads and idempotent updates retry;
       // address creation runs exactly once to avoid duplicate rows.
-      const saved = await requestAddresses(() => createAddress(phone, {
-        ...data,
-        isDefault: addresses.length === 0,
-      }), 1);
+      const addressData = { ...data, isDefault: addresses.length === 0 };
+      let saved;
+      try {
+        saved = await requestAddresses(() => createAddress(phone, addressData), 1);
+      } catch (error) {
+        // A fresh local phone may not have completed its background customer
+        // sync yet. Only recover from that specific FK error, then retry the
+        // insert once; all other errors are surfaced immediately.
+        if (error?.code !== "23503") throw error;
+        await requestAddresses(() => upsertCustomer(phone, { name: user?.name || "" }));
+        saved = await requestAddresses(() => createAddress(phone, addressData), 1);
+      }
       setAddresses((current) => [...current, saved]);
       return saved;
     } catch (error) {
