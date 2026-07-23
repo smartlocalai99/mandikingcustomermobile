@@ -122,6 +122,14 @@ export default function LoginScreen() {
     getBiometricButtonLabel().then(setButtonLabel);
   }, []);
 
+  const finishLogin = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate("MainTabs", { screen: "Home" });
+  };
+
   const handleContinue = async () => {
     console.log("[Login] handleContinue called, phone =", phone);
     if (isAuthenticating) {
@@ -155,16 +163,16 @@ export default function LoginScreen() {
         "That's taking too long. Check your connection and try again."
       );
       console.log("[Login] login() resolved:", JSON.stringify(user));
-      // Only ask for a name when this login actually created a new customer.
-      // Existing customer rows (including rows whose name is temporarily
-      // unavailable due to a slow request) should never be trapped here.
-      if (!user.name && user.isNew) {
+      // A phone with no saved name is an incomplete/new profile. Once the
+      // name is saved, later logins return it from the same upsert response
+      // and skip this step.
+      if (!user.name) {
         console.log("[Login] no name on file, going to name step");
         setStep("name");
         return;
       }
       console.log("[Login] name present, navigating back");
-      setTimeout(() => navigation.goBack(), 300);
+      finishLogin();
     } catch (error) {
       console.log("[Login] handleContinue threw:", error?.message, error);
       setAuthFailure(error?.message || "Unable to connect your account. Please try again.");
@@ -179,7 +187,7 @@ export default function LoginScreen() {
     setAuthFailure("");
     try {
       await saveCustomerName(name);
-      navigation.goBack();
+      finishLogin();
     } catch (error) {
       setAuthFailure(error?.message || "Could not save your name. Please try again.");
     } finally {

@@ -86,31 +86,22 @@ function throwIfError(error) {
 export async function upsertCustomer(phone, profile = {}, client = getSupabase()) {
   const normalized = normalizePhone(phone);
   const normalizedProfile = normalizeCustomerProfile({ phone: normalized, ...profile });
-  // Read first so an existing name is returned immediately. An upsert with an
-  // empty name can otherwise race the profile lookup and make returning users
-  // appear new on slower mobile connections.
-  const { data: existing, error: lookupError } = await client
-    .from("customers")
-    .select("phone, name")
-    .eq("phone", normalized)
-    .maybeSingle();
-  throwIfError(lookupError);
-
-  if (existing) {
-    const current = normalizeCustomerProfile(existing);
-    if (normalizedProfile.name && normalizedProfile.name !== current.name) {
-      return updateCustomerName(normalized, normalizedProfile.name, client);
-    }
-    return { ...current, isNew: false };
-  }
-
+  // Use the same single-request login path as the customer web app. Omitting
+  // `name` preserves an existing name on conflict, while a new phone receives
+  // a row immediately. This avoids a mobile-only lookup→insert gap.
+  const payload = {
+    phone: normalized,
+    updated_at: new Date().toISOString(),
+    ...(normalizedProfile.name ? { name: normalizedProfile.name } : {}),
+  };
   const { data, error } = await client
     .from("customers")
-    .insert({ phone: normalized, ...(normalizedProfile.name ? { name: normalizedProfile.name } : {}) })
+    .upsert(payload, { onConflict: "phone" })
     .select("phone, name")
     .single();
   throwIfError(error);
-  return { ...normalizeCustomerProfile(data), isNew: true };
+  const saved = normalizeCustomerProfile(data);
+  return { ...saved, isNew: !saved.name };
 }
 
 // Read-only profile refresh used when the app was restored from local storage.
