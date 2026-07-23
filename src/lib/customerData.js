@@ -86,13 +86,28 @@ function throwIfError(error) {
 export async function upsertCustomer(phone, profile = {}, client = getSupabase()) {
   const normalized = normalizePhone(phone);
   const normalizedProfile = normalizeCustomerProfile({ phone: normalized, ...profile });
+  // Read first so an existing name is returned immediately. An upsert with an
+  // empty name can otherwise race the profile lookup and make returning users
+  // appear new on slower mobile connections.
+  const { data: existing, error: lookupError } = await client
+    .from("customers")
+    .select("phone, name")
+    .eq("phone", normalized)
+    .maybeSingle();
+  throwIfError(lookupError);
+
+  if (existing) {
+    const current = normalizeCustomerProfile(existing);
+    if (normalizedProfile.name && normalizedProfile.name !== current.name) {
+      return updateCustomerName(normalized, normalizedProfile.name, client);
+    }
+    return current;
+  }
+
   const { data, error } = await client
     .from("customers")
-    .upsert(
-      { phone: normalized, ...(normalizedProfile.name ? { name: normalizedProfile.name } : {}), updated_at: new Date().toISOString() },
-      { onConflict: "phone" }
-    )
-    .select()
+    .insert({ phone: normalized, ...(normalizedProfile.name ? { name: normalizedProfile.name } : {}) })
+    .select("phone, name")
     .single();
   throwIfError(error);
   return normalizeCustomerProfile(data);
@@ -120,13 +135,18 @@ export async function listAddresses(phone, client = getSupabase()) {
 export async function createAddress(phone, address, client = getSupabase()) {
   const row = addressToRow(phone, address);
   if (row.id && !UUID_PATTERN.test(row.id)) delete row.id;
-  const { data, error } = await client
-    .from("customer_addresses")
-    .insert(row)
-    .select()
-    .single();
-  throwIfError(error);
-  return addressFromRow(data);
+  const insertAddress = async (payload) => {
+    const { data, error } = await client.from("customer_addresses").insert(payload).select().single();
+    return { data, error };
+  };
+  let result = await insertAddress(row);
+  // If local state was stale and another default already exists, preserve the
+  // new address instead of failing the entire save on the partial unique index.
+  if (result.error?.code === "23505" && row.is_default) {
+    result = await insertAddress({ ...row, is_default: false });
+  }
+  throwIfError(result.error);
+  return addressFromRow(result.data);
 }
 
 export async function updateAddress(phone, id, address, client = getSupabase()) {
