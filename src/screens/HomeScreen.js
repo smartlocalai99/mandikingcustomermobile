@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
@@ -159,9 +159,8 @@ export default function HomeScreen({ navigation, route }) {
   }, [navigation, route.params?.openNotifications]);
 
   const scrollRef = useRef(null);
-  const pendingScrollTarget = useRef(null);
   const pendingScrollHeading = useRef(null);
-  const scrollRetryCount = useRef(0);
+  const sectionOffsets = useRef(new Map());
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = getDisplayLocation({
@@ -226,57 +225,40 @@ export default function HomeScreen({ navigation, route }) {
   };
 
   const performSectionScroll = (heading) => {
-    const sectionIndex = listSections.findIndex((section) => section.key === heading);
-    if (sectionIndex < 0) return false;
+    const offset = sectionOffsets.current.get(heading);
+    if (typeof offset !== "number") return false;
     pendingScrollHeading.current = null;
-    pendingScrollTarget.current = sectionIndex;
-    scrollRetryCount.current = 0;
-    scrollRef.current?.scrollToLocation({
-      sectionIndex,
-      itemIndex: 0,
-      viewOffset: 12,
-      animated: true,
-    });
+    scrollRef.current?.scrollTo({ y: Math.max(0, offset - 12), animated: true });
     return true;
+  };
+
+  const scheduleSectionScroll = (heading, delay = 0, attempt = 0) => {
+    setTimeout(() => {
+      if (performSectionScroll(heading) || attempt >= 8) return;
+      scheduleSectionScroll(heading, 100, attempt + 1);
+    }, delay);
   };
 
   const jumpToSection = (category) => {
     const heading = resolveTargetHeading(category, sections);
     if (!heading) return;
     // A category tap is an explicit navigation action: clear any active
-    // search so the target section is present in the virtualized list.
+    // search so the target section is rendered.
     setSearchQuery("");
     setIsSearchFocused(false);
     setOpenSections((current) => ({ ...current, [heading]: true }));
     pendingScrollHeading.current = heading;
-    // Run immediately when the unfiltered section already exists. Menu taps
-    // wait for the native Modal dismissal animation so it cannot consume the
-    // scroll command. If search filtering removed the section, the effect
-    // below retries as soon as listSections is rebuilt.
-    const delay = isMenuOpen ? 320 : 0;
-    setTimeout(() => performSectionScroll(heading), delay);
+    // Menu taps wait for the native Modal dismissal animation so it cannot
+    // consume the scroll command.
+    const delay = isMenuOpen ? 320 : 80;
+    scheduleSectionScroll(heading, delay);
   };
 
   useEffect(() => {
     const heading = pendingScrollHeading.current;
     if (!heading) return;
-    requestAnimationFrame(() => performSectionScroll(heading));
+    requestAnimationFrame(() => scheduleSectionScroll(heading, 80));
   }, [listSections]);
-
-  const handleScrollToIndexFailed = (info) => {
-    const sectionIndex = pendingScrollTarget.current;
-    if (sectionIndex == null) return;
-    // First move near the unmeasured cell using SectionList's own estimate,
-    // then retry the exact section. This is the documented recovery pattern
-    // for variable-height virtualized content.
-    const estimatedOffset = Math.max(0, Number(info?.averageItemLength || 0) * Number(info?.index || 0));
-    scrollRef.current?.getScrollResponder()?.scrollTo({ y: estimatedOffset, animated: false });
-    if (scrollRetryCount.current >= 3) return;
-    scrollRetryCount.current += 1;
-    setTimeout(() => {
-      scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
-    }, 120);
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
@@ -320,60 +302,70 @@ export default function HomeScreen({ navigation, route }) {
         />
       </View>
 
-      <SectionList
+      <ScrollView
         ref={scrollRef}
-        sections={listSections}
-        keyExtractor={(row, index) => `${row[0]?.id ?? "empty"}-${index}`}
-        renderItem={({ item, section }) => (
-          openSections[section.key] ?? true ? (
-            <View style={styles.rowWrap}>
-              <ItemRow items={item} sectionTitle={section.title} isOrderingDisabled={isOrderingDisabled} />
-            </View>
-          ) : null
-        )}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionWrap}>
-            <CollapsibleSection
-              title={section.title}
-              badgeText={section.badgeText}
-              isOpen={openSections[section.key] ?? true}
-              onToggle={() => toggleSection(section.key)}
-            />
-          </View>
-        )}
-        ListHeaderComponent={
-          <>
-            <OfferCarousel offers={offers} />
-            <CategoryRow categories={categories} onSelect={jumpToSection} />
-          </>
-        }
-        ListEmptyComponent={
-          !isLoading && sections.length === 0 ? (
-            <View style={styles.centerState}>
-              <Text style={styles.centerStateTitle}>Menu coming soon</Text>
-              <Text style={styles.centerStateSubtitle}>The restaurant is still setting up its menu.</Text>
-            </View>
-          ) : !hasResults ? (
-            <View style={styles.notFoundBox}>
-              <View style={styles.notFoundIcon}>
-                <Ionicons name="search" size={22} color={colors.textFaint} />
-              </View>
-              <Text style={styles.centerStateTitle}>Item not found</Text>
-              <Text style={styles.centerStateSubtitle}>We couldn't find that on the menu. Try a different search.</Text>
-            </View>
-          ) : null
-        }
-        ListFooterComponent={<RestaurantInfo profile={profile} />}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
-        stickySectionHeadersEnabled
-        removeClippedSubviews
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        updateCellsBatchingPeriod={40}
-        windowSize={7}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
-      />
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <OfferCarousel offers={offers} />
+        <CategoryRow categories={categories} onSelect={jumpToSection} />
+
+        {listSections.map((section) => {
+          const isOpen = openSections[section.key] ?? true;
+          return (
+            <View
+              key={section.key}
+              onLayout={(event) => {
+                sectionOffsets.current.set(section.key, event.nativeEvent.layout.y);
+                if (pendingScrollHeading.current === section.key) {
+                  requestAnimationFrame(() => performSectionScroll(section.key));
+                }
+              }}
+              style={styles.sectionWrap}
+            >
+              <CollapsibleSection
+                title={section.title}
+                badgeText={section.badgeText}
+                isOpen={isOpen}
+                onToggle={() => toggleSection(section.key)}
+              >
+                {section.data.map((row, index) => (
+                  <ItemRow
+                    key={`${row[0]?.id ?? section.key}-${index}`}
+                    items={row}
+                    sectionTitle={section.title}
+                    isOrderingDisabled={isOrderingDisabled}
+                  />
+                ))}
+              </CollapsibleSection>
+            </View>
+          );
+        })}
+
+        {isLoading && sections.length === 0 ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.centerStateSubtitle}>Loading menu…</Text>
+          </View>
+        ) : listSections.length === 0 && sections.length === 0 ? (
+          <View style={styles.centerState}>
+            <Text style={styles.centerStateTitle}>Menu coming soon</Text>
+            <Text style={styles.centerStateSubtitle}>The restaurant is still setting up its menu.</Text>
+          </View>
+        ) : !hasResults ? (
+          <View style={styles.notFoundBox}>
+            <View style={styles.notFoundIcon}>
+              <Ionicons name="search" size={22} color={colors.textFaint} />
+            </View>
+            <Text style={styles.centerStateTitle}>Item not found</Text>
+            <Text style={styles.centerStateSubtitle}>We couldn't find that on the menu. Try a different search.</Text>
+          </View>
+        ) : null}
+
+        <RestaurantInfo profile={profile} />
+      </ScrollView>
 
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
       <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
@@ -503,7 +495,6 @@ const styles = StyleSheet.create({
   searchWrap: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingBottom: 12 },
   listContent: { paddingBottom: 32 },
   sectionWrap: { paddingHorizontal: 16, backgroundColor: colors.white },
-  rowWrap: { paddingHorizontal: 16, backgroundColor: colors.white },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, gap: 12 },
   sectionTitleRow: { flex: 1, flexDirection: "row", alignItems: "baseline", gap: 8 },
   sectionTitle: { flexShrink: 1, fontSize: 20, fontWeight: "800", color: colors.textPrimary },

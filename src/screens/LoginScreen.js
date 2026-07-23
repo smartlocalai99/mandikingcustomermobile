@@ -19,15 +19,6 @@ import { colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { authenticateWithBiometrics, getBiometricButtonLabel } from "../lib/biometricAuth";
 
-const LOGIN_TIMEOUT_MS = 20000;
-
-function withTimeout(promise, ms, message) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
 function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonLabel }) {
   const isValid = phone.length === 10;
 
@@ -39,7 +30,7 @@ function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonL
         <Text style={styles.title}>
           Fuel your <Text style={{ color: colors.primary }}>Cravings!</Text>
         </Text>
-        <Text style={styles.subtitle}>Enter your mobile number, then verify it's you with your phone's lock</Text>
+        <Text style={styles.subtitle}>Enter your mobile number, then unlock the app with Face ID.</Text>
       </View>
 
       <View style={styles.phoneField}>
@@ -52,7 +43,7 @@ function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonL
           keyboardType="number-pad"
           maxLength={10}
           autoFocus
-          placeholder="9866531011"
+          placeholder="Enter 10-digit mobile number"
           placeholderTextColor="#9b9b9b"
           style={styles.phoneInput}
         />
@@ -75,42 +66,12 @@ function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonL
   );
 }
 
-function NameStep({ onSubmit, isSaving, error }) {
-  const [name, setName] = useState("");
-  const valid = name.trim().length >= 2;
-  return (
-    <View style={styles.stepBody}>
-      <Image source={require("../../assets/bannerlogin.png")} style={styles.banner} contentFit="contain" />
-      <View style={styles.centerText}>
-        <Text style={styles.title}>What should we call you?</Text>
-        <Text style={styles.subtitle}>Add your name so we can personalize your orders.</Text>
-      </View>
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        autoFocus
-        placeholder="Your name"
-        placeholderTextColor="#9b9b9b"
-        style={styles.nameInput}
-        returnKeyType="done"
-        onSubmitEditing={() => valid && onSubmit(name.trim())}
-      />
-      <View style={styles.errorSlot}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
-      <Pressable disabled={!valid || isSaving} onPress={() => onSubmit(name.trim())} style={[styles.primaryButton, !valid || isSaving ? { opacity: 0.5 } : null]}>
-        {isSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Continue</Text>}
-      </Pressable>
-    </View>
-  );
-}
-
 export default function LoginScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { login, saveCustomerName } = useAuth();
-  const [step, setStep] = useState("phone");
+  const { login } = useAuth();
   const [phone, setPhone] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isSavingName, setIsSavingName] = useState(false);
   const [authFailure, setAuthFailure] = useState("");
   const [buttonLabel, setButtonLabel] = useState("Continue");
 
@@ -141,9 +102,6 @@ export default function LoginScreen() {
     setAuthFailure("");
 
     try {
-      // gated=false means there was nothing to check against (module not
-      // linked yet, no hardware, nothing enrolled) — proceed as if it
-      // passed rather than blocking login over an unavailable bonus layer.
       console.log("[Login] calling authenticateWithBiometrics");
       const biometricResult = await authenticateWithBiometrics("Verify it's you to continue");
       console.log("[Login] biometric result:", JSON.stringify(biometricResult));
@@ -157,41 +115,14 @@ export default function LoginScreen() {
       }
 
       console.log("[Login] calling login(phone)");
-      const user = await withTimeout(
-        login(phone),
-        LOGIN_TIMEOUT_MS,
-        "That's taking too long. Check your connection and try again."
-      );
-      console.log("[Login] login() resolved:", JSON.stringify(user));
-      // A phone with no saved name is an incomplete/new profile. Once the
-      // name is saved, later logins return it from the same upsert response
-      // and skip this step.
-      if (!user.name) {
-        console.log("[Login] no name on file, going to name step");
-        setStep("name");
-        return;
-      }
-      console.log("[Login] name present, navigating back");
+      await login(phone);
+      console.log("[Login] phone session unlocked, navigating back");
       finishLogin();
     } catch (error) {
       console.log("[Login] handleContinue threw:", error?.message, error);
       setAuthFailure(error?.message || "Unable to connect your account. Please try again.");
     } finally {
       setIsAuthenticating(false);
-    }
-  };
-
-  const handleName = async (name) => {
-    Keyboard.dismiss();
-    setIsSavingName(true);
-    setAuthFailure("");
-    try {
-      await saveCustomerName(name);
-      finishLogin();
-    } catch (error) {
-      setAuthFailure(error?.message || "Could not save your name. Please try again.");
-    } finally {
-      setIsSavingName(false);
     }
   };
 
@@ -208,18 +139,14 @@ export default function LoginScreen() {
           keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
-          {step === "phone" ? (
-            <PhoneStep
-              phone={phone}
-              onChange={setPhone}
-              onSubmit={handleContinue}
-              isAuthenticating={isAuthenticating}
-              error={authFailure}
-              buttonLabel={buttonLabel}
-            />
-          ) : (
-            <NameStep onSubmit={handleName} isSaving={isSavingName} error={authFailure} />
-          )}
+          <PhoneStep
+            phone={phone}
+            onChange={setPhone}
+            onSubmit={handleContinue}
+            isAuthenticating={isAuthenticating}
+            error={authFailure}
+            buttonLabel={buttonLabel}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -259,7 +186,6 @@ const styles = StyleSheet.create({
   code: { fontSize: 15, fontWeight: "900", color: "#4a4a4a" },
   divider: { height: 24, width: 1, backgroundColor: "#d5d5d5" },
   phoneInput: { flex: 1, fontSize: 16, fontWeight: "700", color: "#333" },
-  nameInput: { marginTop: 32, height: 56, width: "100%", borderRadius: 12, backgroundColor: "#f2f2f2", paddingHorizontal: 16, fontSize: 16, fontWeight: "700", color: "#333" },
   primaryButton: {
     marginTop: 24,
     height: 54,

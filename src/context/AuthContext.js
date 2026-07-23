@@ -43,6 +43,32 @@ export function AuthProvider({ children }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState("");
 
+  const applySyncedProfile = async (phone, profile) => {
+    if (!profile) return;
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (normalizePhone(parsed.phone) !== phone) return;
+
+    const nextUser = {
+      phone,
+      name: profile.name || parsed.name || "",
+    };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+    await cacheProfile(nextUser);
+    setUser((current) => (current?.phone === phone ? nextUser : current));
+  };
+
+  const syncProfileInBackground = (phone, options = {}) => {
+    void withDeadline(upsertCustomer(phone, options), PROFILE_SYNC_TIMEOUT_MS)
+      .then((profile) => applySyncedProfile(phone, profile))
+      .catch(() => {
+        // The phone-number session remains valid offline. This request only
+        // keeps the optional Supabase profile in sync.
+        setAuthError("Customer data will sync when the connection returns.");
+      });
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -54,23 +80,11 @@ export function AuthProvider({ children }) {
           const normalizedPhone = normalizePhone(parsed.phone);
           if (active) setUser({ phone: normalizedPhone, name: parsed.name || "" });
           if (parsed.name) await cacheProfile({ phone: normalizedPhone, name: parsed.name });
-          try {
-            const profile = await withDeadline(upsertCustomer(normalizedPhone), PROFILE_SYNC_TIMEOUT_MS);
-            if (active && profile) {
-              const nextUser = { phone: normalizedPhone, ...profile };
-              setUser(nextUser);
-              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
-              await cacheProfile(nextUser);
-            }
-          } catch {
-            // Keep a valid local session usable offline. Account refresh will
-            // reconcile it with Supabase when connectivity returns.
-            if (active) setAuthError("Your account will sync when the connection returns.");
-          }
+          if (active) syncProfileInBackground(normalizedPhone);
         }
       } catch {
         if (active) {
-          setAuthError("Unable to connect your account. Please try again.");
+          setAuthError("Your saved session could not be restored. Enter your mobile number again.");
           await AsyncStorage.removeItem(STORAGE_KEY);
         }
       } finally {
@@ -94,18 +108,15 @@ export function AuthProvider({ children }) {
     try {
       setUser(nextUser);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
-      const profile = await withDeadline(upsertCustomer(normalizedPhone, { name }), PROFILE_SYNC_TIMEOUT_MS);
-      const userWithProfile = { ...nextUser, ...profile };
-      setUser(userWithProfile);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
-      await cacheProfile(userWithProfile);
-      return userWithProfile;
-    } catch (error) {
-      const message = "Unable to connect your account. Please try again.";
-      setUser(null);
-      await AsyncStorage.removeItem(STORAGE_KEY);
-      setAuthError(message);
-      throw new Error(message, { cause: error });
+      if (nextUser.name) await cacheProfile(nextUser);
+      syncProfileInBackground(normalizedPhone, { name });
+      return nextUser;
+    } catch {
+      // Face ID already unlocked this in-memory phone session. A local
+      // persistence failure must not turn it into a network-style login.
+      setAuthError("This session may need your mobile number again after the app closes.");
+      syncProfileInBackground(normalizedPhone, { name });
+      return nextUser;
     } finally {
       setIsLoggingIn(false);
     }
