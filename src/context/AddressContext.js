@@ -10,7 +10,11 @@ import {
 } from "../lib/customerData";
 
 const AddressContext = createContext(null);
-const ADDRESSES_TIMEOUT_MS = 20000;
+// Supabase can take a few seconds to wake from an idle state on a fresh
+// install. Keep reads bounded, but give writes a longer window so a valid
+// insert is not reported as failed while the server is still committing it.
+const ADDRESSES_READ_TIMEOUT_MS = 15000;
+const ADDRESSES_WRITE_TIMEOUT_MS = 60000;
 
 function describeAddressError(error, fallback) {
   const code = typeof error?.code === "string" ? ` (${error.code})` : "";
@@ -25,11 +29,11 @@ function withDeadline(task, ms) {
   ]);
 }
 
-async function requestAddresses(task, maxAttempts = 2) {
+async function requestAddresses(task, maxAttempts = 2, timeoutMs = ADDRESSES_READ_TIMEOUT_MS) {
   let lastError;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      return await withDeadline(task, ADDRESSES_TIMEOUT_MS);
+      return await withDeadline(task, timeoutMs);
     } catch (error) {
       lastError = error;
       if (attempt < maxAttempts - 1) await new Promise((resolve) => setTimeout(resolve, 350));
@@ -111,14 +115,14 @@ export function AddressProvider({ children }) {
       const addressData = { ...data, isDefault: addresses.length === 0 };
       let saved;
       try {
-        saved = await requestAddresses(() => createAddress(phone, addressData), 1);
+        saved = await requestAddresses(() => createAddress(phone, addressData), 1, ADDRESSES_WRITE_TIMEOUT_MS);
       } catch (error) {
         // A fresh local phone may not have completed its background customer
         // sync yet. Only recover from that specific FK error, then retry the
         // insert once; all other errors are surfaced immediately.
         if (error?.code !== "23503") throw error;
-        await requestAddresses(() => upsertCustomer(phone, { name: user?.name || "" }));
-        saved = await requestAddresses(() => createAddress(phone, addressData), 1);
+        await requestAddresses(() => upsertCustomer(phone, { name: user?.name || "" }), 1, ADDRESSES_WRITE_TIMEOUT_MS);
+        saved = await requestAddresses(() => createAddress(phone, addressData), 1, ADDRESSES_WRITE_TIMEOUT_MS);
       }
       setAddresses((current) => [...current, saved]);
       return saved;
@@ -139,7 +143,7 @@ export function AddressProvider({ children }) {
       const saved = await requestAddresses(() => updateCustomerAddress(phone, id, {
         ...data,
         isDefault: Boolean(currentAddress?.isDefault),
-      }));
+      }), 1, ADDRESSES_WRITE_TIMEOUT_MS);
       setAddresses((current) =>
         current.map((address) => (address.id === id ? saved : address))
       );
@@ -158,7 +162,7 @@ export function AddressProvider({ children }) {
     setAddressError("");
     try {
       const removedWasDefault = addresses.find((address) => address.id === id)?.isDefault;
-      await requestAddresses(() => deleteAddress(phone, id));
+      await requestAddresses(() => deleteAddress(phone, id), 1, ADDRESSES_WRITE_TIMEOUT_MS);
       let remaining = await requestAddresses(() => listAddresses(phone));
       if (removedWasDefault && remaining.length > 0) {
         await requestAddresses(() => makeDefaultAddress(phone, remaining[0].id));
