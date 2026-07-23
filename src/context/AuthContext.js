@@ -5,15 +5,6 @@ import { getCustomerProfile, normalizePhone, updateCustomerName, upsertCustomer 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
 const PROFILE_CACHE_KEY = "smartrest_customer_profiles";
-const PROFILE_SYNC_TIMEOUT_MS = 15000;
-
-function withDeadline(promise, ms, message = "The account request timed out.") {
-  return Promise.race([
-    Promise.resolve(promise),
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
-  ]);
-}
-
 async function readCachedProfile(phone) {
   try {
     const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
@@ -76,7 +67,7 @@ export function AuthProvider({ children }) {
   };
 
   const syncProfileInBackground = (phone, options = {}) => {
-    void withDeadline(upsertCustomer(phone, options), PROFILE_SYNC_TIMEOUT_MS)
+    void upsertCustomer(phone, options)
       .then((profile) => applySyncedProfile(phone, profile))
       .catch(() => {
         // The phone-number session remains valid offline. This request only
@@ -130,7 +121,7 @@ export function AuthProvider({ children }) {
         // Make the first-login decision from Supabase, not from a stale local
         // profile cache. A blank name from the server means the name form is
         // required once; existing names continue straight into the app.
-        remoteProfile = await withDeadline(upsertCustomer(normalizedPhone, { name: name.trim() }), PROFILE_SYNC_TIMEOUT_MS);
+        remoteProfile = await upsertCustomer(normalizedPhone, { name: name.trim() });
       } catch {
         // Keep phone + Face ID login usable offline; the background sync will
         // retry and the next online login will perform the name check.
@@ -162,7 +153,7 @@ export function AuthProvider({ children }) {
     if (!user?.phone) throw new Error("Log in to save your name.");
     const nextUser = { ...user, name: String(name || "").trim() };
     if (!nextUser.name) throw new Error("Enter your name to continue.");
-    const profile = await withDeadline(updateCustomerName(user.phone, nextUser.name), PROFILE_SYNC_TIMEOUT_MS);
+    const profile = await updateCustomerName(user.phone, nextUser.name);
     Object.assign(nextUser, profile);
     setUser(nextUser);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
@@ -181,7 +172,7 @@ export function AuthProvider({ children }) {
   const refreshProfile = async () => {
     if (!user?.phone) return user;
     try {
-      const profile = await withDeadline(getCustomerProfile(user.phone), PROFILE_SYNC_TIMEOUT_MS);
+      const profile = await getCustomerProfile(user.phone);
       if (!profile) return user;
       const nextUser = { ...user, ...profile };
       setUser(nextUser);
