@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.smartrestai.SmartRestAI"
+      "bundleIdentifier": "com.smartrestai.SmartRestAI",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "SmartRest uses Face ID to quickly and securely verify it's you when you log in."
+      }
     },
     "android": {
       "package": "com.smartrestai.smartrestaimobile",
