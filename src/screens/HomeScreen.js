@@ -161,7 +161,7 @@ export default function HomeScreen({ navigation, route }) {
   const scrollRef = useRef(null);
   const pendingScrollTarget = useRef(null);
   const pendingScrollHeading = useRef(null);
-  const sectionOffsets = useRef(new Map());
+  const scrollRetryCount = useRef(0);
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = getDisplayLocation({
@@ -225,6 +225,21 @@ export default function HomeScreen({ navigation, route }) {
     setOpenSections((current) => ({ ...current, [title]: !(current[title] ?? true) }));
   };
 
+  const performSectionScroll = (heading) => {
+    const sectionIndex = listSections.findIndex((section) => section.key === heading);
+    if (sectionIndex < 0) return false;
+    pendingScrollHeading.current = null;
+    pendingScrollTarget.current = sectionIndex;
+    scrollRetryCount.current = 0;
+    scrollRef.current?.scrollToLocation({
+      sectionIndex,
+      itemIndex: 0,
+      viewOffset: 12,
+      animated: true,
+    });
+    return true;
+  };
+
   const jumpToSection = (category) => {
     const heading = resolveTargetHeading(category, sections);
     if (!heading) return;
@@ -234,42 +249,33 @@ export default function HomeScreen({ navigation, route }) {
     setIsSearchFocused(false);
     setOpenSections((current) => ({ ...current, [heading]: true }));
     pendingScrollHeading.current = heading;
-    const offset = sectionOffsets.current.get(heading);
-    if (typeof offset === "number") {
-      requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
-    }
+    // Run immediately when the unfiltered section already exists. Menu taps
+    // wait for the native Modal dismissal animation so it cannot consume the
+    // scroll command. If search filtering removed the section, the effect
+    // below retries as soon as listSections is rebuilt.
+    const delay = isMenuOpen ? 320 : 0;
+    setTimeout(() => performSectionScroll(heading), delay);
   };
 
   useEffect(() => {
     const heading = pendingScrollHeading.current;
     if (!heading) return;
-    const sectionIndex = listSections.findIndex((section) => section.key === heading);
-    if (sectionIndex < 0) return;
-    const offset = sectionOffsets.current.get(heading);
-    if (typeof offset === "number") {
-      pendingScrollHeading.current = null;
-      requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
-      return;
-    }
-    pendingScrollHeading.current = null;
-    pendingScrollTarget.current = sectionIndex;
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
-    });
+    requestAnimationFrame(() => performSectionScroll(heading));
   }, [listSections]);
 
-  // SectionList's scrollToLocation needs getItemLayout to jump to an
-  // unmeasured (offscreen) row, which our variable-height cards don't have.
-  // Without either that or this handler, RN throws an Invariant Violation
-  // the moment a category taps a section that hasn't rendered yet — which
-  // was every category tap on first load. Retrying after a short delay
-  // lets VirtualizedList finish measuring enough rows to land correctly.
-  const handleScrollToIndexFailed = () => {
+  const handleScrollToIndexFailed = (info) => {
     const sectionIndex = pendingScrollTarget.current;
     if (sectionIndex == null) return;
+    // First move near the unmeasured cell using SectionList's own estimate,
+    // then retry the exact section. This is the documented recovery pattern
+    // for variable-height virtualized content.
+    const estimatedOffset = Math.max(0, Number(info?.averageItemLength || 0) * Number(info?.index || 0));
+    scrollRef.current?.getScrollResponder()?.scrollTo({ y: estimatedOffset, animated: false });
+    if (scrollRetryCount.current >= 3) return;
+    scrollRetryCount.current += 1;
     setTimeout(() => {
       scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
-    }, 300);
+    }, 120);
   };
 
   return (
@@ -326,17 +332,7 @@ export default function HomeScreen({ navigation, route }) {
           ) : null
         )}
         renderSectionHeader={({ section }) => (
-          <View
-            style={styles.sectionWrap}
-            onLayout={(event) => {
-              const offset = event.nativeEvent.layout.y;
-              sectionOffsets.current.set(section.key, offset);
-              if (pendingScrollHeading.current === section.key) {
-                pendingScrollHeading.current = null;
-                requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
-              }
-            }}
-          >
+          <View style={styles.sectionWrap}>
             <CollapsibleSection
               title={section.title}
               badgeText={section.badgeText}
