@@ -9,6 +9,14 @@ import {
 } from "../lib/customerData";
 
 const AddressContext = createContext(null);
+const ADDRESSES_TIMEOUT_MS = 8000;
+
+function withDeadline(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Addresses request timed out")), ms)),
+  ]);
+}
 
 export function AddressProvider({ children }) {
   const { user, isHydrated: isAuthHydrated } = useAuth();
@@ -19,8 +27,12 @@ export function AddressProvider({ children }) {
   const [addressError, setAddressError] = useState("");
 
   const refreshAddresses = async () => {
-    if (!phone) return [];
-    const remoteAddresses = await listAddresses(phone);
+    if (!phone) {
+      setAddresses([]);
+      setIsLoadingAddresses(false);
+      return [];
+    }
+    const remoteAddresses = await withDeadline(listAddresses(phone), ADDRESSES_TIMEOUT_MS);
     setAddresses(remoteAddresses);
     return remoteAddresses;
   };
@@ -42,7 +54,7 @@ export function AddressProvider({ children }) {
       setIsLoadingAddresses(true);
       setAddressError("");
       try {
-        const remoteAddresses = await listAddresses(phone);
+        const remoteAddresses = await withDeadline(listAddresses(phone), ADDRESSES_TIMEOUT_MS);
         if (active) setAddresses(remoteAddresses);
       } catch {
         if (active) {

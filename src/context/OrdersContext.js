@@ -4,6 +4,14 @@ import { createOrder, listOrders } from "../lib/customerData";
 import { normalizeSavedOrder } from "../lib/orderSubmission.mjs";
 
 const OrdersContext = createContext(null);
+const ORDERS_TIMEOUT_MS = 8000;
+
+function withDeadline(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Orders request timed out")), ms)),
+  ]);
+}
 
 export function OrdersProvider({ children }) {
   const { user, isHydrated: isAuthHydrated } = useAuth();
@@ -13,11 +21,15 @@ export function OrdersProvider({ children }) {
   const [ordersError, setOrdersError] = useState("");
 
   const refreshOrders = async () => {
-    if (!phone) return [];
+    if (!phone) {
+      setOrders([]);
+      setIsLoadingOrders(false);
+      return [];
+    }
     setIsLoadingOrders(true);
     setOrdersError("");
     try {
-      const remoteOrders = await listOrders(phone);
+      const remoteOrders = await withDeadline(listOrders(phone), ORDERS_TIMEOUT_MS);
       setOrders(remoteOrders);
       return remoteOrders;
     } catch (error) {
@@ -45,7 +57,7 @@ export function OrdersProvider({ children }) {
       setIsLoadingOrders(true);
       setOrdersError("");
       try {
-        const remoteOrders = await listOrders(phone);
+        const remoteOrders = await withDeadline(listOrders(phone), ORDERS_TIMEOUT_MS);
         if (active) setOrders(remoteOrders);
       } catch {
         if (active) setOrdersError("Could not load your orders. Please try again.");

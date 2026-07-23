@@ -4,6 +4,7 @@ import { normalizePhone, updateCustomerName, upsertCustomer } from "../lib/custo
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
+const PROFILE_CACHE_KEY = "smartrest_customer_profiles";
 const PROFILE_SYNC_TIMEOUT_MS = 2500;
 
 function withDeadline(promise, ms) {
@@ -11,6 +12,29 @@ function withDeadline(promise, ms) {
     Promise.resolve(promise).catch(() => null),
     new Promise((resolve) => setTimeout(() => resolve(null), ms)),
   ]);
+}
+
+async function readCachedProfile(phone) {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    const name = typeof profiles?.[phone]?.name === "string" ? profiles[phone].name.trim() : "";
+    return name ? { phone, name } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheProfile(profile) {
+  if (!profile?.phone || !profile?.name) return;
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    profiles[profile.phone] = { phone: profile.phone, name: profile.name };
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profiles));
+  } catch {
+    // Cache is an optimization; authentication must still work without it.
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -29,11 +53,13 @@ export function AuthProvider({ children }) {
           const parsed = JSON.parse(stored);
           const normalizedPhone = normalizePhone(parsed.phone);
           if (active) setUser({ phone: normalizedPhone, name: parsed.name || "" });
+          if (parsed.name) await cacheProfile({ phone: normalizedPhone, name: parsed.name });
           const profile = await withDeadline(upsertCustomer(normalizedPhone), PROFILE_SYNC_TIMEOUT_MS);
           if (active && profile) {
             const nextUser = { phone: normalizedPhone, ...profile };
             setUser(nextUser);
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+            await cacheProfile(nextUser);
           }
         }
       } catch {
@@ -54,7 +80,8 @@ export function AuthProvider({ children }) {
 
   const login = async (phone, name = "") => {
     const normalizedPhone = normalizePhone(phone);
-    const nextUser = { phone: normalizedPhone };
+    const cachedProfile = await readCachedProfile(normalizedPhone);
+    const nextUser = { phone: normalizedPhone, name: name.trim() || cachedProfile?.name || "" };
     setIsLoggingIn(true);
     setAuthError("");
 
@@ -66,6 +93,7 @@ export function AuthProvider({ children }) {
         const userWithProfile = { ...nextUser, ...profile };
         setUser(userWithProfile);
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
+        await cacheProfile(userWithProfile);
         return userWithProfile;
       }
       return nextUser;
@@ -87,6 +115,7 @@ export function AuthProvider({ children }) {
     if (profile) Object.assign(nextUser, profile);
     setUser(nextUser);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+    await cacheProfile(nextUser);
     return nextUser;
   };
 
