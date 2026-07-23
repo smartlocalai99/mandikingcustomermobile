@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
@@ -382,65 +382,87 @@ export default function HomeScreen({ navigation, route }) {
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
       <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
 
-      {isMenuOpen ? (
+      <Modal
+        visible={isMenuOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setIsMenuOpen(false)}
+      >
         <View style={styles.menuBackdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsMenuOpen(false)} />
-          <View style={[styles.menuPanel, { bottom: insets.bottom + 132 }]}>
+          <View style={[styles.menuPanel, { bottom: insets.bottom + 92 }]}>
             <View style={styles.menuPanelHeader}>
               <Text style={styles.menuPanelTitle}>Menu</Text>
               <Pressable onPress={() => setIsMenuOpen(false)} hitSlop={8} style={styles.menuCloseButton}>
                 <Ionicons name="close" size={18} color={colors.white} />
               </Pressable>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.menuPanelList}>
-              {menuEntries.map((entry) => {
-                const isExpanded = expandedMenuTitle === entry.title;
-                return (
-                  <View key={entry.title}>
-                    <View style={styles.menuEntryRow}>
-                      <Pressable
-                        onPress={() => {
-                          setIsMenuOpen(false);
-                          jumpToSection(entry);
-                        }}
-                        style={({ pressed }) => [styles.menuEntry, pressed ? styles.menuEntryPressed : null]}
-                      >
-                        <Text style={styles.menuEntryText} numberOfLines={1}>{entry.title}</Text>
-                        {entry.badgeText ? <Text style={styles.menuEntryBadge}>{entry.badgeText}</Text> : null}
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={isExpanded ? `Hide ${entry.title} items` : `Preview ${entry.title} items`}
-                        onPress={() => setExpandedMenuTitle((current) => (current === entry.title ? null : entry.title))}
-                        style={styles.menuPlusButton}
-                      >
-                        <Ionicons name={isExpanded ? "close" : "add"} size={17} color={colors.white} />
-                      </Pressable>
-                      <Text style={styles.menuCount}>{entry.items.length}</Text>
-                    </View>
-                    {isExpanded ? (
-                      <View style={styles.menuItemPreview}>
-                        {entry.items.map((item) => (
-                          <Pressable
-                            key={item.id}
-                            onPress={() => {
-                              setIsMenuOpen(false);
-                              jumpToSection(entry);
-                            }}
-                            style={({ pressed }) => [styles.menuItemRow, pressed ? styles.menuEntryPressed : null]}
-                          >
-                            <Text style={styles.menuItemText} numberOfLines={1}>{item.title}</Text>
-                          </Pressable>
-                        ))}
+            {isLoading && menuEntries.length === 0 ? (
+              <View style={styles.menuLoadingState}>
+                <ActivityIndicator color={colors.white} />
+                <Text style={styles.menuStateText}>Loading menu…</Text>
+              </View>
+            ) : menuEntries.length === 0 ? (
+              <View style={styles.menuLoadingState}>
+                <Text style={styles.menuStateText}>Menu is unavailable right now.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.menuScroll}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.menuPanelList}
+                keyboardShouldPersistTaps="handled"
+              >
+                {menuEntries.map((entry) => {
+                  const isExpanded = expandedMenuTitle === entry.title;
+                  return (
+                    <View key={entry.title}>
+                      <View style={styles.menuEntryRow}>
+                        <Pressable
+                          onPress={() => {
+                            setIsMenuOpen(false);
+                            jumpToSection(entry);
+                          }}
+                          style={({ pressed }) => [styles.menuEntry, pressed ? styles.menuEntryPressed : null]}
+                        >
+                          <Text style={styles.menuEntryText} numberOfLines={1}>{entry.title}</Text>
+                          {entry.badgeText ? <Text style={styles.menuEntryBadge}>{entry.badgeText}</Text> : null}
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={isExpanded ? `Hide ${entry.title} items` : `Preview ${entry.title} items`}
+                          onPress={() => setExpandedMenuTitle((current) => (current === entry.title ? null : entry.title))}
+                          style={styles.menuPlusButton}
+                        >
+                          <Ionicons name={isExpanded ? "close" : "add"} size={17} color={colors.white} />
+                        </Pressable>
+                        <Text style={styles.menuCount}>{entry.items.length}</Text>
                       </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </ScrollView>
+                      {isExpanded ? (
+                        <View style={styles.menuItemPreview}>
+                          {entry.items.map((item) => (
+                            <Pressable
+                              key={item.id}
+                              onPress={() => {
+                                setIsMenuOpen(false);
+                                jumpToSection(entry);
+                              }}
+                              style={({ pressed }) => [styles.menuItemRow, pressed ? styles.menuEntryPressed : null]}
+                            >
+                              <Text style={styles.menuItemText} numberOfLines={1}>{item.title}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
         </View>
-      ) : null}
+      </Modal>
 
       <Pressable
         accessibilityRole="button"
@@ -508,12 +530,15 @@ const styles = StyleSheet.create({
   infoSection: { borderTopWidth: 1, borderTopColor: "#dedee7", backgroundColor: "#f5f5fa", paddingHorizontal: 20, paddingTop: 28, paddingBottom: 32 },
   menuPill: { position: "absolute", right: 20, zIndex: 40, height: 48, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 16, backgroundColor: "rgba(35,35,41,0.92)", borderWidth: 1, borderColor: "rgba(255,255,255,0.25)", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
   menuPillText: { color: colors.white, fontSize: 15, fontWeight: "900" },
-  menuBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 35, backgroundColor: "rgba(0,0,0,0.24)" },
-  menuPanel: { position: "absolute", right: 20, width: 300, maxHeight: "62%", borderRadius: 24, padding: 12, backgroundColor: "rgba(35,35,41,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 18 },
+  menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.24)" },
+  menuPanel: { position: "absolute", right: 20, width: 300, height: "62%", maxHeight: 570, borderRadius: 24, padding: 12, backgroundColor: "rgba(35,35,41,0.98)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 18 },
   menuPanelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   menuPanelTitle: { color: colors.white, fontSize: 18, fontWeight: "900" },
   menuCloseButton: { height: 34, width: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
-  menuPanelList: { gap: 4 },
+  menuScroll: { flex: 1 },
+  menuPanelList: { paddingBottom: 8, gap: 4 },
+  menuLoadingState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  menuStateText: { color: "rgba(255,255,255,0.72)", fontSize: 13, fontWeight: "700" },
   menuEntryRow: { flexDirection: "row", alignItems: "center" },
   menuEntry: { flex: 1, minHeight: 42, borderRadius: 12, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 },
   menuEntryPressed: { backgroundColor: "rgba(255,255,255,0.12)" },
