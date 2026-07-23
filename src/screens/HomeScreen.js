@@ -146,6 +146,7 @@ export default function HomeScreen({ navigation, route }) {
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
   const [isNotificationsSheetOpen, setIsNotificationsSheetOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [expandedMenuTitle, setExpandedMenuTitle] = useState(null);
   const [openSections, setOpenSections] = useState({});
 
   useEffect(() => {
@@ -211,10 +212,10 @@ export default function HomeScreen({ navigation, route }) {
 
   const menuEntries = useMemo(
     () => [
-      ...(recommendedItems.length ? [{ title: "Recommended", sectionTitle: "Recommended" }] : []),
-      ...sections.map((section) => ({ title: section.heading, sectionTitle: section.heading })),
+      ...(recommendedItems.length ? [{ title: "Recommended", sectionTitle: "Recommended", items: recommendedItems, badgeText: "" }] : []),
+      ...sections.map((section) => ({ title: section.heading, sectionTitle: section.heading, items: section.items, badgeText: section.badgeText || "" })),
     ],
-    [recommendedItems.length, sections]
+    [recommendedItems, sections]
   );
 
   const toggleSection = (title) => {
@@ -388,19 +389,50 @@ export default function HomeScreen({ navigation, route }) {
               </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.menuPanelList}>
-              {menuEntries.map((entry) => (
-                <Pressable
-                  key={entry.title}
-                  onPress={() => {
-                    setIsMenuOpen(false);
-                    jumpToSection(entry);
-                  }}
-                  style={({ pressed }) => [styles.menuEntry, pressed ? styles.menuEntryPressed : null]}
-                >
-                  <Text style={styles.menuEntryText} numberOfLines={1}>{entry.title}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.55)" />
-                </Pressable>
-              ))}
+              {menuEntries.map((entry) => {
+                const isExpanded = expandedMenuTitle === entry.title;
+                return (
+                  <View key={entry.title}>
+                    <View style={styles.menuEntryRow}>
+                      <Pressable
+                        onPress={() => {
+                          setIsMenuOpen(false);
+                          jumpToSection(entry);
+                        }}
+                        style={({ pressed }) => [styles.menuEntry, pressed ? styles.menuEntryPressed : null]}
+                      >
+                        <Text style={styles.menuEntryText} numberOfLines={1}>{entry.title}</Text>
+                        {entry.badgeText ? <Text style={styles.menuEntryBadge}>{entry.badgeText}</Text> : null}
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={isExpanded ? `Hide ${entry.title} items` : `Preview ${entry.title} items`}
+                        onPress={() => setExpandedMenuTitle((current) => (current === entry.title ? null : entry.title))}
+                        style={styles.menuPlusButton}
+                      >
+                        <Ionicons name={isExpanded ? "close" : "add"} size={17} color={colors.white} />
+                      </Pressable>
+                      <Text style={styles.menuCount}>{entry.items.length}</Text>
+                    </View>
+                    {isExpanded ? (
+                      <View style={styles.menuItemPreview}>
+                        {entry.items.map((item) => (
+                          <Pressable
+                            key={item.id}
+                            onPress={() => {
+                              setIsMenuOpen(false);
+                              jumpToSection(entry);
+                            }}
+                            style={({ pressed }) => [styles.menuItemRow, pressed ? styles.menuEntryPressed : null]}
+                          >
+                            <Text style={styles.menuItemText} numberOfLines={1}>{item.title}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </ScrollView>
           </View>
         </Pressable>
@@ -478,9 +510,16 @@ const styles = StyleSheet.create({
   menuPanelTitle: { color: colors.white, fontSize: 18, fontWeight: "900" },
   menuCloseButton: { height: 34, width: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
   menuPanelList: { gap: 4 },
-  menuEntry: { minHeight: 42, borderRadius: 12, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  menuEntryRow: { flexDirection: "row", alignItems: "center" },
+  menuEntry: { flex: 1, minHeight: 42, borderRadius: 12, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 },
   menuEntryPressed: { backgroundColor: "rgba(255,255,255,0.12)" },
   menuEntryText: { flex: 1, color: "rgba(255,255,255,0.88)", fontSize: 13, fontWeight: "800" },
+  menuEntryBadge: { backgroundColor: colors.favoriteRed, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, color: colors.white, fontSize: 9, fontWeight: "900", textTransform: "uppercase" },
+  menuPlusButton: { height: 32, width: 30, alignItems: "center", justifyContent: "center" },
+  menuCount: { width: 28, textAlign: "right", color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: "700" },
+  menuItemPreview: { paddingLeft: 26, paddingRight: 8, paddingBottom: 4 },
+  menuItemRow: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  menuItemText: { color: "rgba(255,255,255,0.65)", fontSize: 12, fontWeight: "600" },
   infoTitle: { fontSize: 17, fontWeight: "900", color: "#4b4b55" },
   infoBulletRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   infoBulletDot: { fontSize: 13, color: "#5d5d68" },
