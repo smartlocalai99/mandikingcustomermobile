@@ -60,15 +60,24 @@ export default function AccountScreen() {
     logout();
   };
 
+  const profileName = user?.name?.trim() || "SmartRest customer";
+  const avatarLabel = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "SR";
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.white }}>
       <View style={[styles.profileHeader, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.eyebrow}>ACCOUNT</Text>
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user?.phone ? user.phone.slice(-2) : "SR"}</Text>
+            <Text style={styles.avatarText}>{avatarLabel}</Text>
           </View>
           <View>
+            <Text style={styles.profileName}>{profileName}</Text>
             <Text style={styles.profilePhone}>+91 {user?.phone ?? "—"}</Text>
             <Text style={styles.profileLocation}>{getDisplayLocation({ defaultAddress, savedLocation, fallback: "Kadapa, Andhra Pradesh" })}</Text>
           </View>
@@ -119,7 +128,8 @@ const styles = StyleSheet.create({
   profileRow: { marginTop: 12, flexDirection: "row", alignItems: "center", gap: 12 },
   avatar: { height: 56, width: 56, borderRadius: 16, backgroundColor: colors.gold, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 20, fontWeight: "900", color: "#3c1712" },
-  profilePhone: { fontSize: 18, fontWeight: "900", color: colors.white },
+  profileName: { fontSize: 18, fontWeight: "900", color: colors.white },
+  profilePhone: { marginTop: 2, fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.76)" },
   profileLocation: { marginTop: 2, fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.5)" },
   settingsLabel: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, fontSize: 13, fontWeight: "900", color: colors.textPrimary },
   rowsCard: { marginHorizontal: 20, borderRadius: 16, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
