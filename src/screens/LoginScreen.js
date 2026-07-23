@@ -67,6 +67,7 @@ function OtpStep({ onVerified, onBack }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
   const inputRefs = useRef([]);
+  const hasAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (secondsLeft <= 0) return undefined;
@@ -85,10 +86,12 @@ function OtpStep({ onVerified, onBack }) {
           await onVerified();
         } catch (verificationError) {
           setIsVerifying(false);
+          hasAttemptedRef.current = false;
           setError(verificationError?.message || "Unable to connect your account. Please try again.");
         }
       } else {
         setIsVerifying(false);
+        hasAttemptedRef.current = false;
         setError("That code doesn't match. Try 1234 for this demo.");
         setDigits(Array(OTP_LENGTH).fill(""));
         inputRefs.current[0]?.focus();
@@ -96,43 +99,47 @@ function OtpStep({ onVerified, onBack }) {
     }, 500);
   };
 
-  const setDigitAt = (index, value) => {
-    const incoming = value.replace(/\D/g, "");
-
-    // A single keystroke lands here as one digit, but iOS SMS autofill (and
-    // a manual paste) delivers the *entire* code to whichever box is
-    // focused in one onChangeText call. Distributing it across this box and
-    // the following ones — instead of keeping only the last character —
-    // means autofill/paste actually fills the code instead of silently
-    // dropping everything but the final digit.
-    if (!incoming) {
-      setDigits((current) => {
-        const next = [...current];
-        next[index] = "";
-        return next;
-      });
-      return;
+  // Verification is triggered here, from an effect watching the assembled
+  // code, rather than from inside the setDigits updater above. Updater
+  // functions can run more than once for the same state transition (React
+  // dev-mode double-invocation, fast re-renders), and attemptVerify has
+  // side effects (network call, keyboard dismiss) that must only fire once
+  // per completed code — hasAttemptedRef guards that.
+  useEffect(() => {
+    if (code.length === OTP_LENGTH && !hasAttemptedRef.current && !isVerifying) {
+      hasAttemptedRef.current = true;
+      Keyboard.dismiss();
+      attemptVerify(code);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  const setDigitAt = (index, value) => {
+    // maxLength={1} on each box means a single keystroke is all this ever
+    // receives in practice, but handle a bulk paste/autofill value
+    // defensively anyway by spreading it across this box and the ones
+    // after it instead of keeping only the first character.
+    const incoming = value.replace(/\D/g, "");
 
     setDigits((current) => {
       const next = [...current];
+      if (!incoming) {
+        next[index] = "";
+        return next;
+      }
       let cursor = index;
       for (const char of incoming) {
         if (cursor >= OTP_LENGTH) break;
         next[cursor] = char;
         cursor += 1;
       }
-
-      const fullCode = next.join("");
-      if (fullCode.length === OTP_LENGTH) {
-        Keyboard.dismiss();
-        attemptVerify(fullCode);
-      } else {
-        inputRefs.current[Math.min(cursor, OTP_LENGTH - 1)]?.focus();
-      }
-
       return next;
     });
+
+    if (incoming) {
+      const focusIndex = Math.min(index + incoming.length, OTP_LENGTH - 1);
+      requestAnimationFrame(() => inputRefs.current[focusIndex]?.focus());
+    }
   };
 
   const handleKeyPress = (index, event) => {
@@ -175,7 +182,10 @@ function OtpStep({ onVerified, onBack }) {
 
       <Pressable
         disabled={code.length !== OTP_LENGTH || isVerifying}
-        onPress={() => attemptVerify(code)}
+        onPress={() => {
+          hasAttemptedRef.current = true;
+          attemptVerify(code);
+        }}
         style={[styles.primaryButton, code.length !== OTP_LENGTH || isVerifying ? { opacity: 0.5 } : null]}
       >
         {isVerifying ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Verify</Text>}
