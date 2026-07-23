@@ -2,7 +2,6 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/colors";
-import { useAuth } from "../context/AuthContext";
 import { useFavorites } from "../context/FavoritesContext";
 import EmptyState from "../components/EmptyState";
 import ProductCard from "../components/ProductCard";
@@ -10,8 +9,7 @@ import ProductCard from "../components/ProductCard";
 export default function FavoritesScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { isLoggedIn, isHydrated } = useAuth();
-  const { items: favoriteItems = [] } = useFavorites();
+  const { items: favoriteItems = [], isHydrated } = useFavorites();
   const items = Array.isArray(favoriteItems) ? favoriteItems : [];
 
   if (!isHydrated) return null;
@@ -19,22 +17,13 @@ export default function FavoritesScreen() {
   const isEmpty = items.length === 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: isEmpty || !isLoggedIn ? "#f6f6f6" : colors.white }}>
+    <View style={{ flex: 1, backgroundColor: isEmpty ? "#f6f6f6" : colors.white }}>
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.headerTitle}>Favourites</Text>
         <Text style={styles.headerSubtitle}>Dishes you've saved for later</Text>
       </View>
 
-      {!isLoggedIn ? (
-        <EmptyState
-          imageSource={require("../../assets/emptyplate.webp")}
-          icon="heart-outline"
-          title="You haven't logged in"
-          message="Please log in to view your favourites."
-          ctaLabel="Log in with Mobile Number"
-          onPressCta={() => navigation.navigate("Login")}
-        />
-      ) : isEmpty ? (
+      {isEmpty ? (
         <EmptyState
           imageSource={require("../../assets/emptyplate.webp")}
           icon="heart-outline"

@@ -27,18 +27,21 @@ export function FavoritesProvider({ children }) {
   }, [favorites, isHydrated]);
 
   const toggleFavorite = (item, sectionTitle = "") => {
-    let didAdd = false;
+    // Read from the render's own `favorites` snapshot rather than a flag
+    // mutated inside the updater below — setState updaters aren't
+    // guaranteed to run before this line, so that flag could still be
+    // read at its initial value here.
+    const willAdd = !favorites[item.id];
     setFavorites((current) => {
       const updated = { ...current };
       if (updated[item.id]) {
         delete updated[item.id];
       } else {
         updated[item.id] = { item, sectionTitle };
-        didAdd = true;
       }
       return updated;
     });
-    if (didAdd) playFavoriteAddedSound();
+    if (willAdd) playFavoriteAddedSound();
     else playFavoriteRemovedSound();
   };
 
