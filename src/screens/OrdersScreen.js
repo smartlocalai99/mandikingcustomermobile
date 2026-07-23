@@ -3,7 +3,8 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useCallback } from "react";
 import { colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { useMenuData } from "../context/MenuDataContext";
@@ -206,6 +207,12 @@ export default function OrdersScreen() {
   const { orders: orderList = [], isLoadingOrders, ordersError, refreshOrders } = useOrders();
   const orders = Array.isArray(orderList) ? orderList : [];
   const [selectedTab, setSelectedTab] = useState("current");
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isLoggedIn && user?.phone) refreshOrders().catch(() => {});
+    }, [isLoggedIn, user?.phone])
+  );
 
   if (!isHydrated) return null;
 

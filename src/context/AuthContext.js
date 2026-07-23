@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { normalizePhone, updateCustomerName, upsertCustomer } from "../lib/customerData";
+import { getCustomerProfile, normalizePhone, updateCustomerName, upsertCustomer } from "../lib/customerData";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
@@ -127,6 +127,21 @@ export function AuthProvider({ children }) {
     AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   };
 
+  const refreshProfile = async () => {
+    if (!user?.phone) return user;
+    try {
+      const profile = await withDeadline(getCustomerProfile(user.phone), PROFILE_SYNC_TIMEOUT_MS);
+      if (!profile) return user;
+      const nextUser = { ...user, ...profile };
+      setUser(nextUser);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+      await cacheProfile(nextUser);
+      return nextUser;
+    } catch {
+      return user;
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -136,6 +151,7 @@ export function AuthProvider({ children }) {
       authError,
       login,
       saveCustomerName,
+      refreshProfile,
       logout,
     }),
     [user, isHydrated, isLoggingIn, authError]

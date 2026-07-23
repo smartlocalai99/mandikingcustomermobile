@@ -113,6 +113,19 @@ export async function upsertCustomer(phone, profile = {}, client = getSupabase()
   return { ...normalizeCustomerProfile(data), isNew: true };
 }
 
+// Read-only profile refresh used when the app was restored from local storage.
+// It avoids treating a slow first request as a blank customer profile.
+export async function getCustomerProfile(phone, client = getSupabase()) {
+  const normalized = normalizePhone(phone);
+  const { data, error } = await client
+    .from("customers")
+    .select("phone, name")
+    .eq("phone", normalized)
+    .maybeSingle();
+  throwIfError(error);
+  return data ? normalizeCustomerProfile(data) : null;
+}
+
 export async function updateCustomerName(phone, name, client = getSupabase()) {
   const normalized = normalizePhone(phone);
   const profile = normalizeCustomerProfile({ phone: normalized, name });
