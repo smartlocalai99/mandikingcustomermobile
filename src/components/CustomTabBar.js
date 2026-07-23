@@ -57,6 +57,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
       style={[styles.wrapper, { bottom }]}
     >
       <BlurView intensity={60} tint="light" style={styles.bar}>
+        <View pointerEvents="none" style={styles.topGlow} />
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const label = options.title ?? route.name;
@@ -74,7 +75,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
           };
 
           return (
-            <Pressable key={route.key} onPress={onPress} style={styles.tab}>
+            <Pressable key={route.key} onPress={onPress} style={[styles.tab, isFocused ? styles.activeTab : null]}>
               <Ionicons
                 name={ICONS[route.name]}
                 size={22}
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 6,
   },
+  topGlow: { position: "absolute", left: 20, right: 20, top: 4, height: 28, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.6)" },
   checkoutButton: {
     height: 72,
     borderRadius: 30,
@@ -139,6 +141,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 6,
   },
+  activeTab: { borderRadius: 18, backgroundColor: "rgba(255,255,255,0.7)" },
   label: {
     fontSize: 11,
     fontWeight: "800",

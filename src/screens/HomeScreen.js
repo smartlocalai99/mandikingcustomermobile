@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
@@ -156,6 +156,7 @@ export default function HomeScreen({ navigation, route }) {
   const scrollRef = useRef(null);
   const pendingScrollTarget = useRef(null);
   const pendingScrollHeading = useRef(null);
+  const sectionOffsets = useRef(new Map());
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = getDisplayLocation({
@@ -220,6 +221,10 @@ export default function HomeScreen({ navigation, route }) {
     setIsSearchFocused(false);
     setOpenSections((current) => ({ ...current, [heading]: true }));
     pendingScrollHeading.current = heading;
+    const offset = sectionOffsets.current.get(heading);
+    if (typeof offset === "number") {
+      requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
+    }
   };
 
   useEffect(() => {
@@ -227,6 +232,12 @@ export default function HomeScreen({ navigation, route }) {
     if (!heading) return;
     const sectionIndex = listSections.findIndex((section) => section.key === heading);
     if (sectionIndex < 0) return;
+    const offset = sectionOffsets.current.get(heading);
+    if (typeof offset === "number") {
+      pendingScrollHeading.current = null;
+      requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
+      return;
+    }
     pendingScrollHeading.current = null;
     pendingScrollTarget.current = sectionIndex;
     requestAnimationFrame(() => {
@@ -280,6 +291,7 @@ export default function HomeScreen({ navigation, route }) {
           onChange={setSearchQuery}
           suggestions={searchSuggestions}
           onSuggestionSelect={(title) => {
+            Keyboard.dismiss();
             setSearchQuery(title);
             setIsSearchFocused(false);
           }}
@@ -301,7 +313,17 @@ export default function HomeScreen({ navigation, route }) {
           ) : null
         )}
         renderSectionHeader={({ section }) => (
-          <View style={styles.sectionWrap}>
+          <View
+            style={styles.sectionWrap}
+            onLayout={(event) => {
+              const offset = event.nativeEvent.layout.y;
+              sectionOffsets.current.set(section.key, offset);
+              if (pendingScrollHeading.current === section.key) {
+                pendingScrollHeading.current = null;
+                requestAnimationFrame(() => scrollRef.current?.scrollToOffset({ offset: Math.max(0, offset - 12), animated: true }));
+              }
+            }}
+          >
             <CollapsibleSection
               title={section.title}
               badgeText={section.badgeText}
