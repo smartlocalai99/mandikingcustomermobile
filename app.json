@@ -43,6 +43,7 @@
         }
       ],
       "expo-font",
+      "expo-local-authentication",
       "expo-audio",
       [
         "expo-splash-screen",
