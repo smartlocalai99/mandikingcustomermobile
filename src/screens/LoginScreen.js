@@ -111,7 +111,11 @@ export default function LoginScreen() {
   }, []);
 
   const handleContinue = async () => {
-    if (isAuthenticating) return;
+    console.log("[Login] handleContinue called, phone =", phone);
+    if (isAuthenticating) {
+      console.log("[Login] already authenticating, ignoring tap");
+      return;
+    }
     setIsAuthenticating(true);
     setAuthFailure("");
 
@@ -119,8 +123,11 @@ export default function LoginScreen() {
       // gated=false means there was nothing to check against (module not
       // linked yet, no hardware, nothing enrolled) — proceed as if it
       // passed rather than blocking login over an unavailable bonus layer.
+      console.log("[Login] calling authenticateWithBiometrics");
       const biometricResult = await authenticateWithBiometrics("Verify it's you to continue");
+      console.log("[Login] biometric result:", JSON.stringify(biometricResult));
       if (biometricResult.gated && !biometricResult.success) {
+        console.log("[Login] biometric check failed, stopping here");
         if (biometricResult.error !== "user_cancel" && biometricResult.error !== "app_cancel") {
           setAuthFailure("Could not verify. Please try again.");
         }
@@ -128,17 +135,25 @@ export default function LoginScreen() {
         return;
       }
 
+      console.log("[Login] calling login(phone)");
       const user = await withTimeout(
         login(phone),
         LOGIN_TIMEOUT_MS,
         "That's taking too long. Check your connection and try again."
       );
-      if (!user.name) {
+      console.log("[Login] login() resolved:", JSON.stringify(user));
+      // Only ask for a name when this login actually created a new customer.
+      // Existing customer rows (including rows whose name is temporarily
+      // unavailable due to a slow request) should never be trapped here.
+      if (!user.name && user.isNew) {
+        console.log("[Login] no name on file, going to name step");
         setStep("name");
         return;
       }
+      console.log("[Login] name present, navigating back");
       setTimeout(() => navigation.goBack(), 300);
     } catch (error) {
+      console.log("[Login] handleContinue threw:", error?.message, error);
       setAuthFailure(error?.message || "Unable to connect your account. Please try again.");
     } finally {
       setIsAuthenticating(false);

@@ -101,7 +101,7 @@ export async function upsertCustomer(phone, profile = {}, client = getSupabase()
     if (normalizedProfile.name && normalizedProfile.name !== current.name) {
       return updateCustomerName(normalized, normalizedProfile.name, client);
     }
-    return current;
+    return { ...current, isNew: false };
   }
 
   const { data, error } = await client
@@ -110,7 +110,7 @@ export async function upsertCustomer(phone, profile = {}, client = getSupabase()
     .select("phone, name")
     .single();
   throwIfError(error);
-  return normalizeCustomerProfile(data);
+  return { ...normalizeCustomerProfile(data), isNew: true };
 }
 
 export async function updateCustomerName(phone, name, client = getSupabase()) {
