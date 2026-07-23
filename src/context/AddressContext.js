@@ -12,6 +12,12 @@ import {
 const AddressContext = createContext(null);
 const ADDRESSES_TIMEOUT_MS = 20000;
 
+function describeAddressError(error, fallback) {
+  const code = typeof error?.code === "string" ? ` (${error.code})` : "";
+  const detail = typeof error?.message === "string" ? ` ${error.message}` : "";
+  return `${fallback}${code}${detail}`;
+}
+
 function withDeadline(task, ms) {
   return Promise.race([
     Promise.resolve().then(task),
@@ -53,7 +59,7 @@ export function AddressProvider({ children }) {
       setAddresses(remoteAddresses);
       return remoteAddresses;
     } catch (error) {
-      setAddressError("Could not load your saved addresses. Please try again.");
+      setAddressError(describeAddressError(error, "Could not load your saved addresses."));
       throw error;
     } finally {
       setIsLoadingAddresses(false);
@@ -79,9 +85,9 @@ export function AddressProvider({ children }) {
       try {
         const remoteAddresses = await requestAddresses(() => listAddresses(phone));
         if (active) setAddresses(remoteAddresses);
-      } catch {
+      } catch (error) {
         if (active) {
-          setAddressError("Could not load your saved addresses. Please try again.");
+          setAddressError(describeAddressError(error, "Could not load your saved addresses."));
         }
       } finally {
         if (active) setIsLoadingAddresses(false);
@@ -117,7 +123,7 @@ export function AddressProvider({ children }) {
       setAddresses((current) => [...current, saved]);
       return saved;
     } catch (error) {
-      setAddressError("Could not save your address. Please try again.");
+      setAddressError(describeAddressError(error, "Could not save your address."));
       throw error;
     } finally {
       setIsMutatingAddress(false);
@@ -139,7 +145,7 @@ export function AddressProvider({ children }) {
       );
       return saved;
     } catch (error) {
-      setAddressError("Could not update your address. Please try again.");
+      setAddressError(describeAddressError(error, "Could not update your address."));
       throw error;
     } finally {
       setIsMutatingAddress(false);

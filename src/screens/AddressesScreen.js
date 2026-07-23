@@ -302,7 +302,7 @@ export default function AddressesScreen() {
 
         <Pressable
           onPress={() => setSheet("new")}
-          disabled={isLoadingAddresses || isMutatingAddress}
+          disabled={isMutatingAddress}
           style={styles.addButton}
         >
           <Text style={styles.addButtonText}>+ Add New Address</Text>
