@@ -37,6 +37,18 @@ async function cacheProfile(profile) {
   }
 }
 
+async function clearCachedProfile(phone) {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    const profiles = raw ? JSON.parse(raw) : {};
+    if (!profiles?.[phone]) return;
+    delete profiles[phone];
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profiles));
+  } catch {
+    // Cache cleanup is best effort; the server profile remains authoritative.
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -52,10 +64,13 @@ export function AuthProvider({ children }) {
 
     const nextUser = {
       phone,
-      name: profile.name || parsed.name || "",
+      // A blank server name is authoritative. Never resurrect a stale local
+      // name (for example one copied from another app/account).
+      name: profile.name || "",
     };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
-    await cacheProfile(nextUser);
+    if (nextUser.name) await cacheProfile(nextUser);
+    else await clearCachedProfile(phone);
     setUser((current) => (current?.phone === phone ? nextUser : current));
   };
 
