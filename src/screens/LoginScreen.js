@@ -19,6 +19,14 @@ import { useAuth } from "../context/AuthContext";
 const OTP_LENGTH = 4;
 const VALID_OTP = "1234";
 const RESEND_SECONDS = 30;
+const LOGIN_TIMEOUT_MS = 12000;
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
 
 function PhoneStep({ phone, onChange, onSubmit, isSending }) {
   const isValid = phone.length === 10;
@@ -84,6 +92,11 @@ function OtpStep({ onVerified, onBack }) {
       if (candidate === VALID_OTP) {
         try {
           await onVerified();
+          // onVerified is expected to navigate away (step change or
+          // goBack). Resetting here too means a stalled or no-op
+          // navigation never leaves the spinner running forever with no
+          // way to recover.
+          setIsVerifying(false);
         } catch (verificationError) {
           setIsVerifying(false);
           hasAttemptedRef.current = false;
@@ -253,7 +266,11 @@ export default function LoginScreen() {
   };
 
   const handleVerified = async () => {
-    const user = await login(phone);
+    const user = await withTimeout(
+      login(phone),
+      LOGIN_TIMEOUT_MS,
+      "That's taking too long. Check your connection and try again."
+    );
     if (!user.name) {
       setStep("name");
       return;
