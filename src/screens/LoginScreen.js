@@ -66,14 +66,45 @@ function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonL
   );
 }
 
+function NameStep({ name, onChange, onSubmit, isSaving, error }) {
+  const isValid = name.trim().length >= 2;
+  return (
+    <View style={styles.stepBody}>
+      <Image source={require("../../assets/bannerlogin.png")} style={styles.banner} contentFit="contain" />
+      <View style={styles.centerText}>
+        <Text style={styles.title}>What should we call you?</Text>
+        <Text style={styles.subtitle}>Save your name once for a more personal experience.</Text>
+      </View>
+      <TextInput
+        value={name}
+        onChangeText={onChange}
+        autoFocus
+        placeholder="Enter your name"
+        placeholderTextColor="#9b9b9b"
+        style={styles.nameInput}
+        returnKeyType="done"
+        onSubmitEditing={() => isValid && onSubmit()}
+      />
+      <View style={styles.errorSlot}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
+      <Pressable disabled={!isValid || isSaving} onPress={onSubmit} style={[styles.primaryButton, !isValid || isSaving ? { opacity: 0.5 } : null]}>
+        {isSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Save and continue</Text>}
+      </Pressable>
+    </View>
+  );
+}
+
 export default function LoginScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, saveCustomerName } = useAuth();
   const [phone, setPhone] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authFailure, setAuthFailure] = useState("");
   const [buttonLabel, setButtonLabel] = useState("Continue");
+  const [needsName, setNeedsName] = useState(false);
+  const [name, setName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   // Figure out what to call the button (Face ID vs Touch ID vs a plain
   // "Continue" when the device has no biometric hardware/enrollment, or the
@@ -115,7 +146,11 @@ export default function LoginScreen() {
       }
 
       console.log("[Login] calling login(phone)");
-      await login(phone);
+      const loginResult = await login(phone);
+      if (loginResult?.needsName) {
+        setNeedsName(true);
+        return;
+      }
       console.log("[Login] phone session unlocked, navigating back");
       finishLogin();
     } catch (error) {
@@ -123,6 +158,20 @@ export default function LoginScreen() {
       setAuthFailure(error?.message || "Unable to connect your account. Please try again.");
     } finally {
       setIsAuthenticating(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (isSavingName) return;
+    setIsSavingName(true);
+    setNameError("");
+    try {
+      await saveCustomerName(name);
+      finishLogin();
+    } catch (error) {
+      setNameError(error?.message || "Could not save your name. Please try again.");
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -139,14 +188,18 @@ export default function LoginScreen() {
           keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
-          <PhoneStep
-            phone={phone}
-            onChange={setPhone}
-            onSubmit={handleContinue}
-            isAuthenticating={isAuthenticating}
-            error={authFailure}
-            buttonLabel={buttonLabel}
-          />
+          {needsName ? (
+            <NameStep name={name} onChange={setName} onSubmit={handleSaveName} isSaving={isSavingName} error={nameError} />
+          ) : (
+            <PhoneStep
+              phone={phone}
+              onChange={setPhone}
+              onSubmit={handleContinue}
+              isAuthenticating={isAuthenticating}
+              error={authFailure}
+              buttonLabel={buttonLabel}
+            />
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -186,6 +239,7 @@ const styles = StyleSheet.create({
   code: { fontSize: 15, fontWeight: "900", color: "#4a4a4a" },
   divider: { height: 24, width: 1, backgroundColor: "#d5d5d5" },
   phoneInput: { flex: 1, fontSize: 16, fontWeight: "700", color: "#333" },
+  nameInput: { marginTop: 32, height: 56, width: "100%", borderRadius: 12, backgroundColor: "#f2f2f2", paddingHorizontal: 16, fontSize: 16, fontWeight: "700", color: "#333" },
   primaryButton: {
     marginTop: 24,
     height: 54,

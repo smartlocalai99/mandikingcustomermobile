@@ -121,11 +121,27 @@ export function AuthProvider({ children }) {
     setAuthError("");
 
     try {
+      let remoteProfile = null;
+      try {
+        // Make the first-login decision from Supabase, not from a stale local
+        // profile cache. A blank name from the server means the name form is
+        // required once; existing names continue straight into the app.
+        remoteProfile = await withDeadline(upsertCustomer(normalizedPhone, { name: name.trim() }), PROFILE_SYNC_TIMEOUT_MS);
+      } catch {
+        // Keep phone + Face ID login usable offline; the background sync will
+        // retry and the next online login will perform the name check.
+        syncProfileInBackground(normalizedPhone, { name });
+      }
+
+      const serverName = remoteProfile ? String(remoteProfile.name || "").trim() : "";
       setUser(nextUser);
+      if (remoteProfile) {
+        nextUser.name = serverName;
+      }
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
       if (nextUser.name) await cacheProfile(nextUser);
-      syncProfileInBackground(normalizedPhone, { name });
-      return nextUser;
+      if (!remoteProfile) syncProfileInBackground(normalizedPhone, { name });
+      return { ...nextUser, needsName: Boolean(remoteProfile && !serverName) };
     } catch {
       // Face ID already unlocked this in-memory phone session. A local
       // persistence failure must not turn it into a network-style login.
