@@ -219,7 +219,7 @@ export default function AddressesScreen() {
   const insets = useSafeAreaInsets();
   const redirectToCheckout = Boolean(route.params?.redirectToCheckout);
 
-  const { addresses, addAddress, updateAddress, removeAddress, setDefault, isLoadingAddresses, isMutatingAddress, addressError } =
+  const { addresses, addAddress, updateAddress, removeAddress, setDefault, refreshAddresses, isLoadingAddresses, isMutatingAddress, addressError } =
     useAddresses();
   const [sheet, setSheet] = useState(null);
   const [justSaved, setJustSaved] = useState(false);
@@ -272,7 +272,14 @@ export default function AddressesScreen() {
           </View>
         ) : null}
 
-        {addressError && !sheet ? <Text style={styles.dangerNote}>{addressError}</Text> : null}
+        {addressError && !sheet ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.dangerNote}>{addressError}</Text>
+            <Pressable onPress={() => refreshAddresses().catch(() => {})} disabled={isLoadingAddresses} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>{isLoadingAddresses ? "Retrying…" : "Retry"}</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {isLoadingAddresses ? (
           <ActivityIndicator style={{ marginVertical: 40 }} color={colors.primary} />
@@ -336,6 +343,9 @@ const styles = StyleSheet.create({
   calloutTitle: { fontSize: 13, fontWeight: "900", color: colors.danger },
   calloutSubtitle: { marginTop: 2, fontSize: 12, fontWeight: "600", color: "#a56a58" },
   dangerNote: { marginBottom: 12, borderRadius: 12, backgroundColor: colors.dangerBg, padding: 10, fontSize: 12, fontWeight: "700", color: colors.danger },
+  errorBox: { marginBottom: 12 },
+  retryButton: { alignSelf: "flex-start", marginTop: -4, paddingHorizontal: 10, paddingVertical: 6 },
+  retryButtonText: { fontSize: 12, fontWeight: "900", color: colors.primary },
   card: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, padding: 16 },
   cardIcon: { height: 40, width: 40, borderRadius: 12, backgroundColor: colors.offWhite, alignItems: "center", justifyContent: "center" },
   cardLabel: { fontSize: 14, fontWeight: "900", color: colors.textPrimary },
