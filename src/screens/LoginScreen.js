@@ -8,7 +8,7 @@ import { colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { authenticateWithBiometrics, getBiometricButtonLabel } from "../lib/biometricAuth";
 
-const LOGIN_TIMEOUT_MS = 12000;
+const LOGIN_TIMEOUT_MS = 20000;
 
 function withTimeout(promise, ms, message) {
   return Promise.race([
@@ -64,7 +64,7 @@ function PhoneStep({ phone, onChange, onSubmit, isAuthenticating, error, buttonL
   );
 }
 
-function NameStep({ onSubmit, isSaving }) {
+function NameStep({ onSubmit, isSaving, error }) {
   const [name, setName] = useState("");
   const valid = name.trim().length >= 2;
   return (
@@ -84,6 +84,7 @@ function NameStep({ onSubmit, isSaving }) {
         returnKeyType="done"
         onSubmitEditing={() => valid && onSubmit(name.trim())}
       />
+      <View style={styles.errorSlot}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
       <Pressable disabled={!valid || isSaving} onPress={() => onSubmit(name.trim())} style={[styles.primaryButton, !valid || isSaving ? { opacity: 0.5 } : null]}>
         {isSaving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Continue</Text>}
       </Pressable>
@@ -162,9 +163,12 @@ export default function LoginScreen() {
 
   const handleName = async (name) => {
     setIsSavingName(true);
+    setAuthFailure("");
     try {
       await saveCustomerName(name);
       navigation.goBack();
+    } catch (error) {
+      setAuthFailure(error?.message || "Could not save your name. Please try again.");
     } finally {
       setIsSavingName(false);
     }
@@ -186,7 +190,7 @@ export default function LoginScreen() {
           buttonLabel={buttonLabel}
         />
       ) : (
-        <NameStep onSubmit={handleName} isSaving={isSavingName} />
+        <NameStep onSubmit={handleName} isSaving={isSavingName} error={authFailure} />
       )}
     </View>
   );

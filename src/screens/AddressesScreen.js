@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -38,6 +38,12 @@ function AddressSheet({ visible, initialValue, onClose, onSave, isSaving, saveEr
   const [isLocating, setIsLocating] = useState(false);
   const [locateError, setLocateError] = useState(null);
   const isValid = form.line.trim().length > 3;
+
+  useEffect(() => {
+    if (!visible) return;
+    setForm(initialValue ? { ...EMPTY_FORM, ...initialValue } : { ...EMPTY_FORM });
+    setLocateError(null);
+  }, [visible, initialValue]);
 
   const handleUseCurrentLocation = async () => {
     setIsLocating(true);

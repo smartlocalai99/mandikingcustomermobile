@@ -31,7 +31,7 @@ export default function HomeAddressSheet({ visible, onClose }) {
 
   const handleManage = () => {
     onClose();
-    navigation.navigate("Addresses");
+    navigation.navigate(isLoggedIn ? "Addresses" : "Login");
   };
 
   return (
@@ -94,7 +94,7 @@ export default function HomeAddressSheet({ visible, onClose }) {
           {addressError ? <Text style={styles.error}>{addressError}</Text> : null}
 
           <Pressable onPress={handleManage} style={styles.manageButton}>
-            <Text style={styles.manageButtonText}>Add or manage addresses</Text>
+            <Text style={styles.manageButtonText}>{isLoggedIn ? "Add or manage addresses" : "Log in to save an address"}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.white} />
           </Pressable>
         </Pressable>

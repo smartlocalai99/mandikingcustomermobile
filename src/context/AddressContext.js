@@ -5,6 +5,7 @@ import {
   deleteAddress,
   listAddresses,
   makeDefaultAddress,
+  upsertCustomer,
   updateAddress as updateCustomerAddress,
 } from "../lib/customerData";
 
@@ -76,10 +77,14 @@ export function AddressProvider({ children }) {
     setIsMutatingAddress(true);
     setAddressError("");
     try {
-      const saved = await createAddress(phone, {
-        ...data,
-        isDefault: addresses.length === 0,
-      });
+      await withDeadline(upsertCustomer(phone, { name: user?.name || "" }), ADDRESSES_TIMEOUT_MS);
+      const saved = await withDeadline(
+        createAddress(phone, {
+          ...data,
+          isDefault: addresses.length === 0,
+        }),
+        ADDRESSES_TIMEOUT_MS
+      );
       setAddresses((current) => [...current, saved]);
       return saved;
     } catch (error) {

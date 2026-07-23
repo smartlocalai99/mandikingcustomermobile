@@ -26,6 +26,9 @@ function chunk(items, size) {
 }
 
 function resolveTargetHeading(category, sections) {
+  if (String(category.sectionTitle ?? category.label ?? "").trim().toLowerCase() === "recommended") {
+    return "Recommended";
+  }
   if (category.sectionId) {
     const match = sections.find((section) => String(section.id) === String(category.sectionId));
     if (match) return match.heading;
@@ -380,8 +383,9 @@ export default function HomeScreen({ navigation, route }) {
       <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
 
       {isMenuOpen ? (
-        <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)}>
-          <View style={[styles.menuPanel, { bottom: insets.bottom + 132 }]} onStartShouldSetResponder={() => true}>
+        <View style={styles.menuBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsMenuOpen(false)} />
+          <View style={[styles.menuPanel, { bottom: insets.bottom + 132 }]}>
             <View style={styles.menuPanelHeader}>
               <Text style={styles.menuPanelTitle}>Menu</Text>
               <Pressable onPress={() => setIsMenuOpen(false)} hitSlop={8} style={styles.menuCloseButton}>
@@ -435,7 +439,7 @@ export default function HomeScreen({ navigation, route }) {
               })}
             </ScrollView>
           </View>
-        </Pressable>
+        </View>
       ) : null}
 
       <Pressable

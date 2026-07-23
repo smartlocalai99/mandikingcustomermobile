@@ -5,14 +5,12 @@ import { getCustomerProfile, normalizePhone, updateCustomerName, upsertCustomer 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
 const PROFILE_CACHE_KEY = "smartrest_customer_profiles";
-// Profile lookup must have enough time to return an existing name on a
-// normal mobile connection; the LoginScreen still has a separate 12s guard.
-const PROFILE_SYNC_TIMEOUT_MS = 6000;
+const PROFILE_SYNC_TIMEOUT_MS = 15000;
 
-function withDeadline(promise, ms) {
+function withDeadline(promise, ms, message = "The account request timed out.") {
   return Promise.race([
-    Promise.resolve(promise).catch(() => null),
-    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+    Promise.resolve(promise),
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
   ]);
 }
 
@@ -56,12 +54,18 @@ export function AuthProvider({ children }) {
           const normalizedPhone = normalizePhone(parsed.phone);
           if (active) setUser({ phone: normalizedPhone, name: parsed.name || "" });
           if (parsed.name) await cacheProfile({ phone: normalizedPhone, name: parsed.name });
-          const profile = await withDeadline(upsertCustomer(normalizedPhone), PROFILE_SYNC_TIMEOUT_MS);
-          if (active && profile) {
-            const nextUser = { phone: normalizedPhone, ...profile };
-            setUser(nextUser);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
-            await cacheProfile(nextUser);
+          try {
+            const profile = await withDeadline(upsertCustomer(normalizedPhone), PROFILE_SYNC_TIMEOUT_MS);
+            if (active && profile) {
+              const nextUser = { phone: normalizedPhone, ...profile };
+              setUser(nextUser);
+              await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+              await cacheProfile(nextUser);
+            }
+          } catch {
+            // Keep a valid local session usable offline. Account refresh will
+            // reconcile it with Supabase when connectivity returns.
+            if (active) setAuthError("Your account will sync when the connection returns.");
           }
         }
       } catch {
@@ -91,17 +95,15 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
       const profile = await withDeadline(upsertCustomer(normalizedPhone, { name }), PROFILE_SYNC_TIMEOUT_MS);
-      if (profile) {
-        const userWithProfile = { ...nextUser, ...profile };
-        setUser(userWithProfile);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
-        await cacheProfile(userWithProfile);
-        return userWithProfile;
-      }
-      return nextUser;
+      const userWithProfile = { ...nextUser, ...profile };
+      setUser(userWithProfile);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
+      await cacheProfile(userWithProfile);
+      return userWithProfile;
     } catch (error) {
       const message = "Unable to connect your account. Please try again.";
       setUser(null);
+      await AsyncStorage.removeItem(STORAGE_KEY);
       setAuthError(message);
       throw new Error(message, { cause: error });
     } finally {
@@ -114,7 +116,7 @@ export function AuthProvider({ children }) {
     const nextUser = { ...user, name: String(name || "").trim() };
     if (!nextUser.name) throw new Error("Enter your name to continue.");
     const profile = await withDeadline(updateCustomerName(user.phone, nextUser.name), PROFILE_SYNC_TIMEOUT_MS);
-    if (profile) Object.assign(nextUser, profile);
+    Object.assign(nextUser, profile);
     setUser(nextUser);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
     await cacheProfile(nextUser);

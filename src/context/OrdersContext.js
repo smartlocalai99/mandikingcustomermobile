@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { createOrder, listOrders } from "../lib/customerData";
+import { createOrder, listOrders, upsertCustomer } from "../lib/customerData";
 import { normalizeSavedOrder } from "../lib/orderSubmission.mjs";
 
 const OrdersContext = createContext(null);
@@ -76,7 +76,8 @@ export function OrdersProvider({ children }) {
     if (!phone) throw new Error("Log in to place an order.");
     setOrdersError("");
     try {
-      const savedOrder = normalizeSavedOrder(await createOrder(phone, order));
+      await withDeadline(upsertCustomer(phone, { name: user?.name || "" }), ORDERS_TIMEOUT_MS);
+      const savedOrder = normalizeSavedOrder(await withDeadline(createOrder(phone, order), ORDERS_TIMEOUT_MS));
       // Local state (and therefore the Orders tab) only changes once the
       // insert has actually succeeded — a failed request leaves it untouched.
       setOrders((current) => [savedOrder, ...current]);
