@@ -3,10 +3,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { authenticateWithBiometrics, getBiometricButtonLabel } from "../lib/biometricAuth";
 
 const LOGIN_TIMEOUT_MS = 12000;
 
@@ -91,12 +91,6 @@ function NameStep({ onSubmit, isSaving }) {
   );
 }
 
-const AUTH_TYPE_LABELS = {
-  [LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION]: "Continue with Face ID",
-  [LocalAuthentication.AuthenticationType.FINGERPRINT]: "Continue with Touch ID",
-  [LocalAuthentication.AuthenticationType.IRIS]: "Continue with Iris ID",
-};
-
 export default function LoginScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -109,21 +103,11 @@ export default function LoginScreen() {
   const [buttonLabel, setButtonLabel] = useState("Continue");
 
   // Figure out what to call the button (Face ID vs Touch ID vs a plain
-  // "Continue" when the device has no biometric hardware/enrollment) once,
+  // "Continue" when the device has no biometric hardware/enrollment, or the
+  // current build predates expo-local-authentication being linked) once,
   // up front, so the phone step never has to guess.
   useEffect(() => {
-    (async () => {
-      try {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = hasHardware ? await LocalAuthentication.isEnrolledAsync() : false;
-        if (!hasHardware || !isEnrolled) return;
-        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        const preferred = types.find((type) => AUTH_TYPE_LABELS[type]);
-        if (preferred) setButtonLabel(AUTH_TYPE_LABELS[preferred]);
-      } catch {
-        // Keep the plain "Continue" label — biometrics are a bonus, not a requirement.
-      }
-    })();
+    getBiometricButtonLabel().then(setButtonLabel);
   }, []);
 
   const handleContinue = async () => {
@@ -132,24 +116,16 @@ export default function LoginScreen() {
     setAuthFailure("");
 
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = hasHardware ? await LocalAuthentication.isEnrolledAsync() : false;
-
-      // Only gate on biometrics when the device actually supports and has
-      // them set up. A phone with no Face ID/Touch ID/passcode enrolled
-      // shouldn't be locked out of the app entirely over it.
-      if (hasHardware && isEnrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Verify it's you to continue",
-          disableDeviceFallback: false,
-        });
-        if (!result.success) {
-          if (result.error !== "user_cancel" && result.error !== "app_cancel") {
-            setAuthFailure("Could not verify. Please try again.");
-          }
-          setIsAuthenticating(false);
-          return;
+      // gated=false means there was nothing to check against (module not
+      // linked yet, no hardware, nothing enrolled) — proceed as if it
+      // passed rather than blocking login over an unavailable bonus layer.
+      const biometricResult = await authenticateWithBiometrics("Verify it's you to continue");
+      if (biometricResult.gated && !biometricResult.success) {
+        if (biometricResult.error !== "user_cancel" && biometricResult.error !== "app_cancel") {
+          setAuthFailure("Could not verify. Please try again.");
         }
+        setIsAuthenticating(false);
+        return;
       }
 
       const user = await withTimeout(
