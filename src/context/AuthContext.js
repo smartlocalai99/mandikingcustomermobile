@@ -5,7 +5,9 @@ import { normalizePhone, updateCustomerName, upsertCustomer } from "../lib/custo
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
 const PROFILE_CACHE_KEY = "smartrest_customer_profiles";
-const PROFILE_SYNC_TIMEOUT_MS = 2500;
+// Profile lookup must have enough time to return an existing name on a
+// normal mobile connection; the LoginScreen still has a separate 12s guard.
+const PROFILE_SYNC_TIMEOUT_MS = 6000;
 
 function withDeadline(promise, ms) {
   return Promise.race([
