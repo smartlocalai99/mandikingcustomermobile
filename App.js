@@ -1,5 +1,5 @@
 import "react-native-gesture-handler";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, LogBox, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -19,6 +19,14 @@ import OnboardingScreen from "./src/screens/OnboardingScreen";
 import { colors } from "./src/constants/colors";
 
 const navigationRef = createNavigationContainerRef();
+
+// Sound effects are guarded (soundAssets.js) and never crash — but on a
+// dev-client build compiled before expo-audio was linked natively, the
+// module's own top-level requireNativeModule() call still logs a red
+// LogBox screen the instant a sound is attempted, even though the app
+// keeps working underneath. That's confusing on a device, not a real bug,
+// so it's suppressed here until the next native rebuild picks up the module.
+LogBox.ignoreLogs(["Cannot find native module 'ExpoAudio'"]);
 
 function AppContent() {
   const { isReady, needsOnboarding } = useOnboarding();

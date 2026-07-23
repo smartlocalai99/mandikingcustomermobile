@@ -97,23 +97,42 @@ function OtpStep({ onVerified, onBack }) {
   };
 
   const setDigitAt = (index, value) => {
-    const clean = value.replace(/\D/g, "").slice(-1);
+    const incoming = value.replace(/\D/g, "");
+
+    // A single keystroke lands here as one digit, but iOS SMS autofill (and
+    // a manual paste) delivers the *entire* code to whichever box is
+    // focused in one onChangeText call. Distributing it across this box and
+    // the following ones — instead of keeping only the last character —
+    // means autofill/paste actually fills the code instead of silently
+    // dropping everything but the final digit.
+    if (!incoming) {
+      setDigits((current) => {
+        const next = [...current];
+        next[index] = "";
+        return next;
+      });
+      return;
+    }
+
     setDigits((current) => {
       const next = [...current];
-      next[index] = clean;
-      if (clean && index === OTP_LENGTH - 1) {
-        const fullCode = next.join("");
-        if (fullCode.length === OTP_LENGTH) {
-          Keyboard.dismiss();
-          attemptVerify(fullCode);
-        }
+      let cursor = index;
+      for (const char of incoming) {
+        if (cursor >= OTP_LENGTH) break;
+        next[cursor] = char;
+        cursor += 1;
       }
+
+      const fullCode = next.join("");
+      if (fullCode.length === OTP_LENGTH) {
+        Keyboard.dismiss();
+        attemptVerify(fullCode);
+      } else {
+        inputRefs.current[Math.min(cursor, OTP_LENGTH - 1)]?.focus();
+      }
+
       return next;
     });
-
-    if (clean && index < OTP_LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
   };
 
   const handleKeyPress = (index, event) => {

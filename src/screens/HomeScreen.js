@@ -146,6 +146,7 @@ export default function HomeScreen({ navigation, route }) {
   }, [navigation, route.params?.openNotifications]);
 
   const scrollRef = useRef(null);
+  const pendingScrollTarget = useRef(null);
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = getDisplayLocation({
@@ -208,9 +209,24 @@ export default function HomeScreen({ navigation, route }) {
     requestAnimationFrame(() => {
       const sectionIndex = listSections.findIndex((section) => section.key === heading);
       if (sectionIndex >= 0) {
+        pendingScrollTarget.current = sectionIndex;
         scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
       }
     });
+  };
+
+  // SectionList's scrollToLocation needs getItemLayout to jump to an
+  // unmeasured (offscreen) row, which our variable-height cards don't have.
+  // Without either that or this handler, RN throws an Invariant Violation
+  // the moment a category taps a section that hasn't rendered yet — which
+  // was every category tap on first load. Retrying after a short delay
+  // lets VirtualizedList finish measuring enough rows to land correctly.
+  const handleScrollToIndexFailed = () => {
+    const sectionIndex = pendingScrollTarget.current;
+    if (sectionIndex == null) return;
+    setTimeout(() => {
+      scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
+    }, 300);
   };
 
   return (
@@ -302,6 +318,7 @@ export default function HomeScreen({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
         stickySectionHeadersEnabled
         removeClippedSubviews
+        onScrollToIndexFailed={handleScrollToIndexFailed}
       />
 
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
