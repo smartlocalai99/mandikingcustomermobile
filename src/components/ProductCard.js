@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +8,7 @@ import { useFavorites } from "../context/FavoritesContext";
 
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
 
-export default function ProductCard({ item, sectionTitle, isOrderingDisabled = false }) {
+function ProductCard({ item, sectionTitle, isOrderingDisabled = false }) {
   const { cart, changeQuantity } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const quantity = cart[item.id]?.quantity || 0;
@@ -114,6 +115,12 @@ export default function ProductCard({ item, sectionTitle, isOrderingDisabled = f
     </View>
   );
 }
+
+export default memo(ProductCard, (previous, next) =>
+  previous.item === next.item &&
+  previous.sectionTitle === next.sectionTitle &&
+  previous.isOrderingDisabled === next.isOrderingDisabled
+);
 
 const styles = StyleSheet.create({
   card: { flex: 1, backgroundColor: colors.white },

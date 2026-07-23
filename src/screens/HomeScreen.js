@@ -27,13 +27,21 @@ function chunk(items, size) {
 
 function resolveTargetHeading(category, sections) {
   if (category.sectionId) {
-    const match = sections.find((section) => section.id === category.sectionId);
+    const match = sections.find((section) => String(section.id) === String(category.sectionId));
     if (match) return match.heading;
   }
   if (category.sectionTitle) {
-    const match = sections.find((section) => section.heading === category.sectionTitle);
+    const target = String(category.sectionTitle).trim().toLowerCase();
+    const match = sections.find((section) => {
+      const heading = String(section.heading ?? "").trim().toLowerCase();
+      return heading === target || heading.includes(target) || target.includes(heading);
+    });
     if (match) return match.heading;
   }
+  const label = String(category.label ?? "").trim().toLowerCase();
+  const aliases = { mandi: ["mandi"], starters: ["starter"], rotis: ["roti", "bread"], desserts: ["dessert", "sweet"] };
+  const match = sections.find((section) => (aliases[label] ?? [label]).some((term) => String(section.heading ?? "").toLowerCase().includes(term)));
+  if (match) return match.heading;
   return null;
 }
 
@@ -147,6 +155,7 @@ export default function HomeScreen({ navigation, route }) {
 
   const scrollRef = useRef(null);
   const pendingScrollTarget = useRef(null);
+  const pendingScrollHeading = useRef(null);
 
   const isOrderingDisabled = profile ? profile.busyMode || !profile.isOpen : false;
   const displayAddress = getDisplayLocation({
@@ -205,15 +214,25 @@ export default function HomeScreen({ navigation, route }) {
   const jumpToSection = (category) => {
     const heading = resolveTargetHeading(category, sections);
     if (!heading) return;
+    // A category tap is an explicit navigation action: clear any active
+    // search so the target section is present in the virtualized list.
+    setSearchQuery("");
+    setIsSearchFocused(false);
     setOpenSections((current) => ({ ...current, [heading]: true }));
-    requestAnimationFrame(() => {
-      const sectionIndex = listSections.findIndex((section) => section.key === heading);
-      if (sectionIndex >= 0) {
-        pendingScrollTarget.current = sectionIndex;
-        scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
-      }
-    });
+    pendingScrollHeading.current = heading;
   };
+
+  useEffect(() => {
+    const heading = pendingScrollHeading.current;
+    if (!heading) return;
+    const sectionIndex = listSections.findIndex((section) => section.key === heading);
+    if (sectionIndex < 0) return;
+    pendingScrollHeading.current = null;
+    pendingScrollTarget.current = sectionIndex;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToLocation({ sectionIndex, itemIndex: 0, viewOffset: 12, animated: true });
+    });
+  }, [listSections]);
 
   // SectionList's scrollToLocation needs getItemLayout to jump to an
   // unmeasured (offscreen) row, which our variable-height cards don't have.
@@ -318,6 +337,10 @@ export default function HomeScreen({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
         stickySectionHeadersEnabled
         removeClippedSubviews
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={40}
+        windowSize={7}
         onScrollToIndexFailed={handleScrollToIndexFailed}
       />
 

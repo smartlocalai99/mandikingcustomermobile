@@ -1,9 +1,19 @@
 const PLACEHOLDER = "https://raw.githubusercontent.com/expo/expo/main/templates/expo-template-blank/assets/icon.png";
 
+export function normalizeSearchText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 export function matchesSearch(item, sectionTitle, query) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) return true;
-  return `${item.title} ${item.description ?? ""} ${sectionTitle}`.toLowerCase().includes(normalizedQuery);
+  const terms = normalizeSearchText(query).split(" ").filter(Boolean);
+  if (!terms.length) return true;
+  const haystack = normalizeSearchText(`${item?.title ?? ""} ${item?.description ?? ""} ${sectionTitle ?? ""}`);
+  return terms.every((term) => haystack.includes(term));
 }
 
 export function getMenuSearchSuggestions(sections, query, vegOnly = false) {
