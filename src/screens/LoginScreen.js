@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -117,6 +128,7 @@ export default function LoginScreen() {
       console.log("[Login] already authenticating, ignoring tap");
       return;
     }
+    Keyboard.dismiss();
     setIsAuthenticating(true);
     setAuthFailure("");
 
@@ -162,6 +174,7 @@ export default function LoginScreen() {
   };
 
   const handleName = async (name) => {
+    Keyboard.dismiss();
     setIsSavingName(true);
     setAuthFailure("");
     try {
@@ -180,18 +193,27 @@ export default function LoginScreen() {
         <Ionicons name="arrow-back" size={20} color="#333" />
       </Pressable>
 
-      {step === "phone" ? (
-        <PhoneStep
-          phone={phone}
-          onChange={setPhone}
-          onSubmit={handleContinue}
-          isAuthenticating={isAuthenticating}
-          error={authFailure}
-          buttonLabel={buttonLabel}
-        />
-      ) : (
-        <NameStep onSubmit={handleName} isSaving={isSavingName} error={authFailure} />
-      )}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          contentContainerStyle={styles.loginScrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          {step === "phone" ? (
+            <PhoneStep
+              phone={phone}
+              onChange={setPhone}
+              onSubmit={handleContinue}
+              isAuthenticating={isAuthenticating}
+              error={authFailure}
+              buttonLabel={buttonLabel}
+            />
+          ) : (
+            <NameStep onSubmit={handleName} isSaving={isSavingName} error={authFailure} />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -208,7 +230,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepBody: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 72, paddingBottom: 24 },
+  loginScrollContent: { flexGrow: 1 },
+  stepBody: { flex: 1, alignItems: "center", paddingHorizontal: 24, paddingTop: 72, paddingBottom: 36 },
   banner: { width: 260, height: 200 },
   centerText: { marginTop: 20, alignItems: "center" },
   title: { fontSize: 26, fontWeight: "900", color: "#222" },
