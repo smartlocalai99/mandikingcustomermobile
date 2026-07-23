@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
@@ -145,6 +145,7 @@ export default function HomeScreen({ navigation, route }) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
   const [isNotificationsSheetOpen, setIsNotificationsSheetOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openSections, setOpenSections] = useState({});
 
   useEffect(() => {
@@ -207,6 +208,14 @@ export default function HomeScreen({ navigation, route }) {
     });
     return nextSections;
   }, [searchedRecommendedItems, showRecommended, visibleMenuSections]);
+
+  const menuEntries = useMemo(
+    () => [
+      ...(recommendedItems.length ? [{ title: "Recommended", sectionTitle: "Recommended" }] : []),
+      ...sections.map((section) => ({ title: section.heading, sectionTitle: section.heading })),
+    ],
+    [recommendedItems.length, sections]
+  );
 
   const toggleSection = (title) => {
     setOpenSections((current) => ({ ...current, [title]: !(current[title] ?? true) }));
@@ -368,6 +377,44 @@ export default function HomeScreen({ navigation, route }) {
 
       <HomeAddressSheet visible={isAddressSheetOpen} onClose={() => setIsAddressSheetOpen(false)} />
       <NotificationsSheet visible={isNotificationsSheetOpen} onClose={() => setIsNotificationsSheetOpen(false)} />
+
+      {isMenuOpen ? (
+        <Pressable style={styles.menuBackdrop} onPress={() => setIsMenuOpen(false)}>
+          <View style={[styles.menuPanel, { bottom: insets.bottom + 132 }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.menuPanelHeader}>
+              <Text style={styles.menuPanelTitle}>Menu</Text>
+              <Pressable onPress={() => setIsMenuOpen(false)} hitSlop={8} style={styles.menuCloseButton}>
+                <Ionicons name="close" size={18} color={colors.white} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.menuPanelList}>
+              {menuEntries.map((entry) => (
+                <Pressable
+                  key={entry.title}
+                  onPress={() => {
+                    setIsMenuOpen(false);
+                    jumpToSection(entry);
+                  }}
+                  style={({ pressed }) => [styles.menuEntry, pressed ? styles.menuEntryPressed : null]}
+                >
+                  <Text style={styles.menuEntryText} numberOfLines={1}>{entry.title}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.55)" />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open menu navigator"
+        onPress={() => setIsMenuOpen((current) => !current)}
+        style={[styles.menuPill, { bottom: insets.bottom + 76 }]}
+      >
+        <Ionicons name="restaurant-outline" size={18} color={colors.white} />
+        <Text style={styles.menuPillText}>Menu</Text>
+      </Pressable>
     </View>
   );
 }
@@ -423,6 +470,17 @@ const styles = StyleSheet.create({
   },
   notFoundIcon: { height: 56, width: 56, borderRadius: 28, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   infoSection: { borderTopWidth: 1, borderTopColor: "#dedee7", backgroundColor: "#f5f5fa", paddingHorizontal: 20, paddingTop: 28, paddingBottom: 32 },
+  menuPill: { position: "absolute", right: 20, zIndex: 40, height: 48, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 16, backgroundColor: "rgba(35,35,41,0.92)", borderWidth: 1, borderColor: "rgba(255,255,255,0.25)", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  menuPillText: { color: colors.white, fontSize: 15, fontWeight: "900" },
+  menuBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 35, backgroundColor: "rgba(0,0,0,0.24)" },
+  menuPanel: { position: "absolute", right: 20, width: 300, maxHeight: "62%", borderRadius: 24, padding: 12, backgroundColor: "rgba(35,35,41,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 18 },
+  menuPanelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
+  menuPanelTitle: { color: colors.white, fontSize: 18, fontWeight: "900" },
+  menuCloseButton: { height: 34, width: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
+  menuPanelList: { gap: 4 },
+  menuEntry: { minHeight: 42, borderRadius: 12, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  menuEntryPressed: { backgroundColor: "rgba(255,255,255,0.12)" },
+  menuEntryText: { flex: 1, color: "rgba(255,255,255,0.88)", fontSize: 13, fontWeight: "800" },
   infoTitle: { fontSize: 17, fontWeight: "900", color: "#4b4b55" },
   infoBulletRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   infoBulletDot: { fontSize: 13, color: "#5d5d68" },
