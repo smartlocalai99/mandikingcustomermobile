@@ -4,6 +4,14 @@ import { normalizePhone, updateCustomerName, upsertCustomer } from "../lib/custo
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "smartrest_auth";
+const PROFILE_SYNC_TIMEOUT_MS = 2500;
+
+function withDeadline(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise).catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -20,8 +28,13 @@ export function AuthProvider({ children }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           const normalizedPhone = normalizePhone(parsed.phone);
-          const profile = await upsertCustomer(normalizedPhone);
-          if (active) setUser({ ...profile, phone: normalizedPhone });
+          if (active) setUser({ phone: normalizedPhone, name: parsed.name || "" });
+          const profile = await withDeadline(upsertCustomer(normalizedPhone), PROFILE_SYNC_TIMEOUT_MS);
+          if (active && profile) {
+            const nextUser = { phone: normalizedPhone, ...profile };
+            setUser(nextUser);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+          }
         }
       } catch {
         if (active) {
@@ -46,11 +59,16 @@ export function AuthProvider({ children }) {
     setAuthError("");
 
     try {
-      const profile = await upsertCustomer(normalizedPhone, { name });
-      const userWithProfile = { ...nextUser, ...profile };
-      setUser(userWithProfile);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
-      return userWithProfile;
+      setUser(nextUser);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+      const profile = await withDeadline(upsertCustomer(normalizedPhone, { name }), PROFILE_SYNC_TIMEOUT_MS);
+      if (profile) {
+        const userWithProfile = { ...nextUser, ...profile };
+        setUser(userWithProfile);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userWithProfile));
+        return userWithProfile;
+      }
+      return nextUser;
     } catch (error) {
       const message = "Unable to connect your account. Please try again.";
       setUser(null);
@@ -63,8 +81,10 @@ export function AuthProvider({ children }) {
 
   const saveCustomerName = async (name) => {
     if (!user?.phone) throw new Error("Log in to save your name.");
-    const profile = await updateCustomerName(user.phone, name);
-    const nextUser = { ...user, ...profile };
+    const nextUser = { ...user, name: String(name || "").trim() };
+    if (!nextUser.name) throw new Error("Enter your name to continue.");
+    const profile = await withDeadline(updateCustomerName(user.phone, nextUser.name), PROFILE_SYNC_TIMEOUT_MS);
+    if (profile) Object.assign(nextUser, profile);
     setUser(nextUser);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
     return nextUser;

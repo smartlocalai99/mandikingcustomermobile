@@ -8,9 +8,7 @@ test("shows onboarding until it is explicitly completed", () => {
   assert.equal(shouldShowOnboarding({ completed: true }), false);
 });
 
-test("moves through welcome, notifications, location, and confirmation", () => {
+test("completes onboarding after notification permission without requesting location", () => {
   assert.equal(nextOnboardingStep("welcome"), "notifications");
-  assert.equal(nextOnboardingStep("notifications"), "location");
-  assert.equal(nextOnboardingStep("location"), "confirm-location");
-  assert.equal(nextOnboardingStep("confirm-location"), "complete");
+  assert.equal(nextOnboardingStep("notifications"), "complete");
 });

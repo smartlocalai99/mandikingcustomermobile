@@ -5,8 +5,6 @@ export function shouldShowOnboarding(snapshot) {
 export function nextOnboardingStep(step) {
   return {
     welcome: "notifications",
-    notifications: "location",
-    location: "confirm-location",
-    "confirm-location": "complete",
+    notifications: "complete",
   }[step] ?? "complete";
 }

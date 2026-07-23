@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Image } from "expo-image";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../constants/colors";
 import { useOnboarding } from "../context/OnboardingContext";
@@ -18,17 +18,11 @@ const COPY = {
     body: "We’ll send order updates and special offers from the restaurant.",
     action: "Allow notifications",
   },
-  location: {
-    eyebrow: "DELIVERY MADE EASY",
-    title: "Find your delivery address.",
-    body: "Allow location access to suggest your current address. You can enter one manually instead.",
-    action: "Use my location",
-  },
 };
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { requestNotifications, requestLocation, completeOnboarding, locationState } = useOnboarding();
+  const { requestNotifications, completeOnboarding } = useOnboarding();
   const [step, setStep] = useState("welcome");
   const [isWorking, setIsWorking] = useState(false);
 
@@ -38,25 +32,11 @@ export default function OnboardingScreen() {
       await requestNotifications();
     } finally {
       setIsWorking(false);
-      setStep("location");
+      await completeOnboarding(null);
     }
   };
 
-  const handleLocation = async () => {
-    setIsWorking(true);
-    try {
-      await requestLocation();
-      setStep("confirm-location");
-    } catch {
-      // The current error is shown by the location step without blocking manual entry.
-    } finally {
-      setIsWorking(false);
-    }
-  };
-
-  const finishManually = () => completeOnboarding(null);
-  const confirmLocation = () => completeOnboarding(locationState.address);
-  const copy = COPY[step] ?? COPY.location;
+  const copy = COPY[step] ?? COPY.welcome;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
@@ -65,53 +45,20 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={styles.content}>
-        {step === "confirm-location" ? (
-          <>
-            <Text style={styles.eyebrow}>ADDRESS FOUND</Text>
-            <Text style={styles.title}>Use this delivery address?</Text>
-            <View style={styles.addressCard}>
-              <Text style={styles.addressTitle}>{locationState.address?.landmark || "Current location"}</Text>
-              <Text style={styles.addressLine}>{locationState.address?.line}</Text>
-            </View>
-            <Pressable style={styles.primaryButton} onPress={confirmLocation}>
-              <Text style={styles.primaryButtonText}>Confirm address</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={finishManually}>
-              <Text style={styles.secondaryButtonText}>Enter manually instead</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
+        <>
             <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
             <Text style={styles.title}>{copy.title}</Text>
             <Text style={styles.body}>{copy.body}</Text>
 
-            {step === "location" && locationState.status === "error" ? (
-              <View style={styles.errorCard}>
-                <Text style={styles.errorText}>{locationState.error?.message}</Text>
-                {locationState.error?.canOpenSettings ? (
-                  <Pressable onPress={() => Linking.openSettings()}>
-                    <Text style={styles.settingsLink}>Open Settings</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-
             <Pressable
               style={[styles.primaryButton, isWorking ? styles.disabledButton : null]}
-              onPress={step === "welcome" ? () => setStep("notifications") : step === "notifications" ? handleNotifications : handleLocation}
+              onPress={step === "welcome" ? () => setStep("notifications") : handleNotifications}
               disabled={isWorking}
             >
               <Text style={styles.primaryButtonText}>{isWorking ? "Please wait…" : copy.action}</Text>
             </Pressable>
 
-            {step === "location" ? (
-              <Pressable style={styles.secondaryButton} onPress={finishManually} disabled={isWorking}>
-                <Text style={styles.secondaryButtonText}>Enter address manually</Text>
-              </Pressable>
-            ) : null}
-          </>
-        )}
+        </>
       </View>
     </View>
   );
