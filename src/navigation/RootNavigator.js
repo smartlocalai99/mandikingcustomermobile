@@ -6,12 +6,14 @@ import AddressesScreen from "../screens/AddressesScreen";
 import PaymentMethodsScreen from "../screens/PaymentMethodsScreen";
 import HelpScreen from "../screens/HelpScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
+import { useAuth } from "../context/AuthContext";
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
+  const { requiresName } = useAuth();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator key={requiresName ? "requires-name" : "app"} initialRouteName={requiresName ? "Login" : "MainTabs"} screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ presentation: "modal" }} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />

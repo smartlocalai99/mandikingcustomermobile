@@ -82,19 +82,15 @@ export function MenuDataProvider({ children }) {
         if (status === "SUBSCRIBED") refetch();
       });
 
-    // Same defensive pattern as the web app: mobile OSes can suspend the
-    // websocket in the background with no clean disconnect event, so
-    // refetch on foreground return and on a short interval regardless.
+    // Refresh when the app returns to the foreground or when Realtime reports
+    // a menu change. Avoid a permanent polling loop on the free Supabase plan.
     const appStateSub = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") refetch();
     });
-    const pollId = setInterval(refetch, 20000);
-
     return () => {
       cancelled = true;
       client.removeChannel(channel);
       appStateSub.remove();
-      clearInterval(pollId);
     };
   }, [client]);
 

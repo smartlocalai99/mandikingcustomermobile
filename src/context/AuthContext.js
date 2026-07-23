@@ -54,6 +54,7 @@ export function AuthProvider({ children }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [requiresName, setRequiresName] = useState(false);
 
   const applySyncedProfile = async (phone, profile) => {
     if (!profile) return;
@@ -93,9 +94,12 @@ export function AuthProvider({ children }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           const normalizedPhone = normalizePhone(parsed.phone);
-          if (active) setUser({ phone: normalizedPhone, name: parsed.name || "" });
+          if (active) {
+            const restoredName = parsed.name || "";
+            setUser({ phone: normalizedPhone, name: restoredName });
+            setRequiresName(!restoredName);
+          }
           if (parsed.name) await cacheProfile({ phone: normalizedPhone, name: parsed.name });
-          if (active) syncProfileInBackground(normalizedPhone);
         }
       } catch {
         if (active) {
@@ -137,6 +141,7 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       if (remoteProfile) {
         nextUser.name = serverName;
+        setRequiresName(!serverName);
       }
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
       if (nextUser.name) await cacheProfile(nextUser);
@@ -162,11 +167,13 @@ export function AuthProvider({ children }) {
     setUser(nextUser);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
     await cacheProfile(nextUser);
+    setRequiresName(false);
     return nextUser;
   };
 
   const logout = () => {
     setUser(null);
+    setRequiresName(false);
     setAuthError("");
     AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   };
@@ -193,12 +200,13 @@ export function AuthProvider({ children }) {
       isHydrated,
       isLoggingIn,
       authError,
+      requiresName,
       login,
       saveCustomerName,
       refreshProfile,
       logout,
     }),
-    [user, isHydrated, isLoggingIn, authError]
+    [user, isHydrated, isLoggingIn, authError, requiresName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

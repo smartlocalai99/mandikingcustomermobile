@@ -96,12 +96,12 @@ function NameStep({ name, onChange, onSubmit, isSaving, error }) {
 export default function LoginScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { login, saveCustomerName } = useAuth();
-  const [phone, setPhone] = useState("");
+  const { user, login, saveCustomerName, requiresName: authRequiresName } = useAuth();
+  const [phone, setPhone] = useState(user?.phone || "");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authFailure, setAuthFailure] = useState("");
   const [buttonLabel, setButtonLabel] = useState("Continue");
-  const [needsName, setNeedsName] = useState(false);
+  const [needsName, setNeedsName] = useState(Boolean(authRequiresName && user?.phone));
   const [name, setName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState("");

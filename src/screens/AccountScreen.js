@@ -1,8 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useCallback } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/colors";
 import { useAddresses } from "../context/AddressContext";
 import { useAuth } from "../context/AuthContext";
@@ -14,16 +13,10 @@ import { getDisplayLocation } from "../lib/locationDisplay.mjs";
 export default function AccountScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { user, logout, refreshProfile, isLoggedIn, isHydrated } = useAuth();
+  const { user, logout, isLoggedIn, isHydrated } = useAuth();
   const { defaultAddress } = useAddresses();
   const { method } = usePayment();
   const { savedLocation } = useOnboarding();
-
-  useFocusEffect(
-    useCallback(() => {
-      if (isLoggedIn && user?.phone && !user?.name) refreshProfile();
-    }, [isLoggedIn, user?.phone, user?.name])
-  );
 
   if (!isHydrated) return null;
 
